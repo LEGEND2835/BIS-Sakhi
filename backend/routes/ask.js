@@ -20,11 +20,17 @@ router.post("/", async (req, res, next) => {
     let productName = null;
 
     if (
-      text.includes("helmet") ||
-      text.includes("motorcycle helmet") ||
-      text.includes("bike helmet")
+         text.includes("helmet") ||
+         text.includes("motorcycle helmet") ||
+        text.includes("bike helmet")
     ) {
-      productName = "Motorcycle Helmet";
+         productName = "Motorcycle Helmet";
+    } else if (
+         text.includes("packaged drinking water") ||
+        text.includes("packaged water") ||
+        text.includes("bottled drinking water")
+    ) {
+         productName = "Packaged Drinking Water";
     }
 
     // Safe abstention when product is not in our verified corpus
@@ -130,10 +136,13 @@ router.post("/", async (req, res, next) => {
         ]
       },
 
-      warnings: [
-        "IS 4151:1993 is withdrawn.",
-        "Use the current IS 4151:2015 record."
-      ],
+      warnings:
+        productName === "Motorcycle Helmet"
+            ? [
+                "IS 4151:1993 is withdrawn.",
+                "Use the current IS 4151:2015 record."
+            ]
+            : [],
 
       evidence: [
         {

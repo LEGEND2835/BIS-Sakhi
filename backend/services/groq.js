@@ -50,9 +50,25 @@ Use when the primary question is about finding,
 selecting, or locating a BIS-recognized testing laboratory.
 
 consumer:
-Use for consumer-facing questions such as verifying BIS certification,
-understanding the BIS Standard Mark, checking a BIS licence,
-consumer complaints, or general consumer guidance.
+Use for consumer-facing questions about BIS marks, BIS certification
+verification, BIS licence verification, R-number/CRS verification,
+consumer complaints, consumer protection, or understanding different
+BIS conformity marks.
+
+IMPORTANT:
+The following questions MUST be classified as "consumer":
+
+"What are the different BIS marks?"
+"What are the different BIS standard marks?"
+"What is the ISI mark?"
+"How do I verify an ISI mark?"
+"How do I check a BIS licence?"
+"How do I verify an R-number?"
+"How can I complain about a BIS-certified product?"
+"How do I report misuse of the ISI mark?"
+
+These are consumer questions even when the user does not explicitly
+mention the word "consumer".
 
 hallmarking:
 Use for gold, silver, jewellery hallmarking, HUID,
@@ -64,6 +80,23 @@ Use for general BIS questions that do not fit another category.
 unsupported:
 Use when the request is outside BIS standards, BIS services,
 certification, testing, consumer affairs, or hallmarking.
+
+CONSUMER EXAMPLES:
+
+User: "What are the different BIS marks?"
+Intent: consumer
+
+User: "How do I verify an ISI mark?"
+Intent: consumer
+
+User: "How do I verify an R-number?"
+Intent: consumer
+
+User: "How can I complain about a BIS-certified product?"
+Intent: consumer
+
+User: "What is the ISI mark?"
+Intent: consumer
 
 BATTERY CHEMISTRY:
 Set battery_chemistry to "lithium" for lithium-ion/lithium batteries.

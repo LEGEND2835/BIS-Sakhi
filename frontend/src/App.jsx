@@ -432,13 +432,24 @@ function App() {
               </div>
 
               {/* Product */}
-              {result.intent !== "hallmarking" && (
+              {result.intent !== "hallmarking" && 
+                result.intent !== "consumer" && (  
                 <div className="product-result">
                   <div className="product-result-main">
                     <div>
                       <div className="eyebrow">PRODUCT IDENTIFIED</div>
-                      <h3>{result.detected_product?.name}</h3>
-                      <p>{result.detected_product?.category}</p>
+
+                      <h3>
+                        {typeof result.detected_product === "string"
+                          ? result.detected_product
+                          : result.detected_product?.name ||
+                            "General BIS Certification"}
+                      </h3>
+
+                      {typeof result.detected_product === "object" &&
+                        result.detected_product?.category && (
+                          <p>{result.detected_product.category}</p>
+                        )}
                     </div>
 
                     {result.ai_intent?.intent && (
@@ -450,6 +461,41 @@ function App() {
                   </div>
                 </div>
               )}
+
+              {/* Consumer Guidance */}
+              {result.intent === "consumer" &&
+                result.consumer_guidance && (
+                  <section className="next-steps consumer-guidance">
+                    <div className="section-heading">
+                      <div>
+                        <div className="eyebrow">CONSUMER GUIDANCE</div>
+                        <h2>
+                          {result.consumer_guidance.topic
+                            ?.replace(/_/g, " ")
+                            .replace(/\b\w/g, (c) => c.toUpperCase())}
+                        </h2>
+                      </div>
+                    </div>
+
+                    <div className="guidance-card">
+                      <p>{result.consumer_guidance.answer}</p>
+
+                      {result.consumer_guidance.source?.url && (
+                        <div className="cert-source-link">
+                          <a
+                            href={result.consumer_guidance.source.url}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <FileText size={13} />
+                            <span>Official BIS Source</span>
+                            <ExternalLink size={13} />
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                )}
 
               {/* Hallmarking Guidance */}
               {result.intent === "hallmarking" &&
@@ -493,7 +539,61 @@ function App() {
                   </section>
                 )}
 
-              {result.intent !== "hallmarking" && (
+              {/* Certification Process */}
+              {result.intent === "certification_process" &&
+                result.certification_process?.length > 0 && (
+                  <section className="next-steps certification-process">
+                    <div className="section-heading">
+                      <div>
+                        <div className="eyebrow">
+                          BIS CERTIFICATION PROCESS
+                        </div>
+
+                        <h2>
+                          How to get BIS certification
+                        </h2>
+                      </div>
+                    </div>
+
+                    <div className="steps-list">
+                      {result.certification_process.map((step) => (
+                        <div
+                          className="next-step"
+                          key={step.step}
+                        >
+                          <span>{step.step}</span>
+
+                          <div>
+                            <strong>{step.title}</strong>
+
+                            <p>{step.description}</p>
+
+                            {step.source && (
+                              <div className="cert-source-link">
+                                <a
+                                  href={step.source.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  <FileText size={13} />
+                                  <span>
+                                    {step.source.name ||
+                                      "Official BIS Source"}
+                                  </span>
+                                  <ExternalLink size={13} />
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+              {result.intent !== "hallmarking" &&
+                result.intent !== "certification_process" && 
+                result.intent !== "consumer" && (
                 <>
                   {/* Pathway */}
                   <div className="pathway">

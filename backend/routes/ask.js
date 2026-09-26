@@ -1,8 +1,23 @@
 const express = require("express");
 const db = require("../config/db");
 const { understandQuery } = require("../services/groq");
+const { localizeResponse } = require("../services/localize");
 
 const router = express.Router();
+
+async function sendLocalizedResponse(res, response, language) {
+  try {
+    const localized = await localizeResponse(response, language);
+    return res.json(localized);
+  } catch (error) {
+    console.warn(
+      "Localization failed, returning original response:",
+      error.message
+    );
+
+    return res.json(response);
+  }
+}
 
 router.post("/", async (req, res, next) => {
   try {
@@ -65,7 +80,7 @@ router.post("/", async (req, res, next) => {
       batteryChemistry = "nickel";
     }
 
-        // ---------------------------------------------------------
+    // ---------------------------------------------------------
     // 1A. Hallmarking guidance
     // ---------------------------------------------------------
     if (aiIntent && aiIntent.intent === "hallmarking") {
@@ -131,27 +146,31 @@ router.post("/", async (req, res, next) => {
           }
         }
       }
-
+      
       if (bestMatch && bestScore >= 2) {
-        return res.json({
-          status: "success",
-          query,
-          detected_product: null,
-          confidence: 0.95,
-          abstained: false,
-          intent: "hallmarking",
-          hallmarking: {
-            topic: bestMatch.topic,
-            answer: bestMatch.answer,
-            source: bestMatch.source_url
-              ? {
-                  name: bestMatch.source_name,
-                  url: bestMatch.source_url
-                }
-              : null
+        return sendLocalizedResponse(
+          res,
+          {
+            status: "success",
+            query,
+            detected_product: null,
+            confidence: 0.95,
+            abstained: false,
+            intent: "hallmarking",
+            hallmarking: {
+              topic: bestMatch.topic,
+              answer: bestMatch.answer,
+              source: bestMatch.source_url
+                ? {
+                    name: bestMatch.source_name,
+                    url: bestMatch.source_url
+                  }
+                : null
+            },
+            ai_intent: aiIntent
           },
-          ai_intent: aiIntent
-        });
+          aiIntent?.language
+        );
       }
 
       return res.json({
@@ -166,11 +185,198 @@ router.post("/", async (req, res, next) => {
         next_step:
           "Please ask about HUID, hallmark verification, jewellery testing, jeweller registration, or another specific Hallmarking topic.",
         ai_intent: aiIntent
-      });
+      });      
+    }
+
+    // Consumer guidance
+    if (
+      aiIntent &&
+      aiIntent.intent === "consumer"
+    ) {
+      const consumerResult = await db.query(
+        `
+        SELECT
+          id,
+          topic,
+          question_pattern,
+          answer,
+          source_url
+        FROM consumer_guidance
+        ORDER BY id;
+        `
+      );
+
+      const stopWords = new Set([
+        "how",
+        "do",
+        "i",
+        "can",
+        "the",
+        "a",
+        "an",
+        "is",
+        "are",
+        "to",
+        "about",
+        "what",
+        "for",
+        "my",
+        "me",
+        "please",
+        "bis"
+      ]);
+
+      const queryWords = query
+        .toLowerCase()
+        .split(/[^a-z0-9-]+/)
+        .filter(word => word.length > 1 && !stopWords.has(word));
+
+      let bestMatch = null;
+      let bestScore = 0;
+
+      for (const row of consumerResult.rows) {
+        const patterns = row.question_pattern
+          .toLowerCase()
+          .split(";")
+          .map(pattern =>
+            pattern
+              .split(/[^a-z0-9-]+/)
+              .filter(Boolean)
+          );
+
+        let score = 0;
+
+        for (const patternWords of patterns) {
+          const matches = patternWords.filter(word =>
+            queryWords.includes(word)
+          ).length;
+
+          score = Math.max(score, matches);
+        }
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = row;
+        }
+      }
+
+      if (bestMatch && bestScore >= 2) {
+        return sendLocalizedResponse(
+          res,
+          {
+            status: "success",
+            query,
+            detected_product: null,
+            confidence: Math.min(0.95, 0.65 + bestScore * 0.1),
+            abstained: false,
+            intent: "consumer",
+            consumer_guidance: {
+              topic: bestMatch.topic,
+              answer: bestMatch.answer,
+              source: bestMatch.source_url
+                ? {
+                    url: bestMatch.source_url
+                  }
+                : null
+            },
+            ai_intent: aiIntent
+          },
+          aiIntent?.language
+        );
+      }
+
+      return sendLocalizedResponse(
+        res,
+        {
+          status: "success",
+          query,
+          detected_product: null,
+          confidence: 0,
+          abstained: true,
+          intent: "consumer",
+          message:
+            "I could not find verified BIS consumer guidance for that query.",
+          next_step:
+            "Please ask about ISI mark verification, R-number verification, BIS complaints, or BIS standard marks.",
+          ai_intent: aiIntent
+        },
+        aiIntent?.language
+      );
     }
 
     // ---------------------------------------------------------
-    // 2. Detect product from verified database
+    // 2. Certification process guidance
+    // ---------------------------------------------------------
+    if (
+      aiIntent &&
+      aiIntent.intent === "certification_process"
+    ) {
+      const certificationResult = await db.query(
+        `
+        SELECT
+          cp.step_order,
+          cp.title,
+          cp.description,
+          cp.source_url,
+          s.name AS source_name
+        FROM certification_process cp
+        LEFT JOIN sources s
+          ON s.id = cp.source_id
+        WHERE cp.topic = 'product_certification'
+        ORDER BY cp.step_order;
+        `
+      );
+
+      if (certificationResult.rows.length > 0) {
+        return sendLocalizedResponse(
+          res,
+          {
+            status: "success",
+            query,
+            detected_product: aiIntent.product || null,
+            confidence: 0.95,
+            abstained: false,
+            intent: "certification_process",
+            certification_process:
+              certificationResult.rows.map(row => ({
+                step: row.step_order,
+                title: row.title,
+                description: row.description,
+                source: row.source_url
+                  ? {
+                      name: row.source_name,
+                      url: row.source_url
+                    }
+                  : null
+              })),
+            ai_intent: aiIntent
+          },
+          aiIntent?.language
+        );
+      }
+
+      return sendLocalizedResponse(
+        res,
+        {
+          status: "success",
+          query,
+          detected_product: aiIntent.product || null,
+          confidence: 0,
+          abstained: true,
+          intent: "certification_process",
+          message:
+            "I could not find a verified BIS certification process for that query.",
+          next_step:
+            "Please ask about BIS product certification or specify the product you want to certify.",
+          ai_intent: aiIntent
+        },
+        aiIntent?.language
+      );
+    }
+
+
+    // ---------------------------------------------------------
+    // 3. Detect product from verified database
     //    (AI product hint primary, deterministic query fallback)
     // ---------------------------------------------------------
     let matchedProduct = null;
@@ -229,7 +435,7 @@ router.post("/", async (req, res, next) => {
       : null;
 
     // ---------------------------------------------------------
-    // 3. Safe abstention
+    // 4. Safe abstention
     // ---------------------------------------------------------
     if (!productName) {
       return res.json({
@@ -246,7 +452,7 @@ router.post("/", async (req, res, next) => {
     }
 
     // ---------------------------------------------------------
-    // 4. Retrieve standards + certification + labs + evidence
+    // 5. Retrieve standards + certification + labs + evidence
     // ---------------------------------------------------------
     const result = await db.query(
       `
@@ -333,7 +539,7 @@ router.post("/", async (req, res, next) => {
     }
 
     // ---------------------------------------------------------
-    // 5. Build standards
+    // 6. Build standards
     // ---------------------------------------------------------
     const standardsMap = new Map();
 
@@ -409,7 +615,7 @@ router.post("/", async (req, res, next) => {
     const standards = Array.from(standardsMap.values());
 
     // ---------------------------------------------------------
-    // 6. Product-specific warnings
+    // 7. Product-specific warnings
     // ---------------------------------------------------------
     let warnings = [];
 
@@ -421,7 +627,7 @@ router.post("/", async (req, res, next) => {
     }
 
     // ---------------------------------------------------------
-    // 7. Build certification summary
+    // 8. Build certification summary
     // ---------------------------------------------------------
     const certifications = standards.map(standard => ({
       standard: standard.number,
@@ -429,7 +635,7 @@ router.post("/", async (req, res, next) => {
     }));
 
     // ---------------------------------------------------------
-    // 8. Response
+    // 9. Response
     // ---------------------------------------------------------
     res.json({
       status: "success",

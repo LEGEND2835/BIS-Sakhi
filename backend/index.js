@@ -4,6 +4,8 @@ const express = require("express");
 const cors = require("cors");
 const db = require("./config/db");
 const errorHandler = require("./errorHandler");
+const complianceRoutes = require("./routes/compliance");
+const askRoutes = require("./routes/ask");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -26,6 +28,9 @@ app.get("/api/health", async (req, res) => {
     });
   }
 });
+
+app.use("/api/compliance", complianceRoutes);
+app.use("/api/ask", askRoutes);
 
 app.use(errorHandler);
 

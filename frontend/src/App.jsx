@@ -1,0 +1,797 @@
+import { useState } from "react";
+import {
+  Search,
+  Menu,
+  ChevronRight,
+  ExternalLink,
+  FlaskConical,
+  ShieldCheck,
+  FileText,
+  AlertTriangle,
+  Loader2,
+} from "lucide-react";
+import "./App.css";
+
+const API_URL = "http://localhost:3000/api/ask";
+
+const examples = [
+  "Motorcycle Helmets",
+  "Packaged Drinking Water",
+  "Toys",
+  "Batteries",
+];
+
+const popularPathways = [
+  {
+    title: "Motorcycle Helmets",
+    query: "Motorcycle Helmets",
+    standard: "IS 4151",
+    desc: "Protective helmets for two-wheeler riders across India.",
+    scheme: "Mandatory ISI Mark",
+  },
+  {
+    title: "Packaged Drinking Water",
+    query: "Packaged Drinking Water",
+    standard: "IS 14543:2024",
+    desc: "Packaged drinking water other than natural mineral water.",
+    scheme: "Certification status requires verification",
+  },
+  {
+    title: "Toys",
+    query: "Toys",
+    standard: "IS 9873 / IS 15644",
+    desc: "Safety of toys covering physical, mechanical, and electrical safety.",
+    scheme: "Certification/revision status requires verification",
+  },
+  {
+    title: "Batteries",
+    query: "Batteries",
+    standard: "IS 16046",
+    desc: "Secondary cells and batteries containing alkaline or non-acid electrolytes.",
+    scheme: "Compulsory Registration (CRS)",
+  },
+];
+
+function formatIntent(intent) {
+  if (!intent) return null;
+  const intentMap = {
+    standard_query: "Standards Inquiry",
+    standard_testing: "Standards & Testing",
+    certification: "Certification Requirements",
+    certification_process: "Certification Process",
+    laboratory: "Testing Laboratories",
+    consumer: "Consumer Guidance",
+    hallmarking: "Hallmarking Inquiry",
+    general: "General BIS Guidance",
+    unsupported: "General Inquiry",
+  };
+  return intentMap[intent] || intent.replace(/_/g, " ");
+}
+
+function App() {
+  const [query, setQuery] = useState("");
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function askSakhi(question = query) {
+    if (!question.trim()) return;
+
+    setLoading(true);
+    setError("");
+    setResult(null);
+
+    try {
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ query: question }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Request failed");
+      }
+
+      setResult(data);
+      setTimeout(() => {
+        const anchor = document.getElementById("search-results-anchor");
+        if (anchor) {
+          anchor.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 80);
+    } catch (err) {
+      setError(
+        "Unable to connect to the BIS-SAKHI backend server. Please ensure the backend is running on http://localhost:3000."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function submit(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    askSakhi();
+  }
+
+  return (
+    <div className="site">
+
+      {/* Top utility bar */}
+      <div className="utility-bar">
+        <div className="container utility-inner">
+          <span>Bureau of Indian Standards</span>
+
+          <div className="utility-links">
+            <span>Standards</span>
+            <span>Laboratories</span>
+            <span>Certification</span>
+            <span>हिंदी</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Header */}
+      <header className="header">
+        <div className="container header-inner">
+
+          <div className="brand">
+            <div className="bis-symbol">
+              <div className="bis-symbol-inner">
+                <span></span>
+              </div>
+            </div>
+
+            <div>
+              <div className="brand-title">BIS-SAKHI</div>
+              <div className="brand-subtitle">
+                AI Assistant for Indian Standards & BIS Services
+              </div>
+            </div>
+          </div>
+
+          <nav className="desktop-nav">
+            <span>Standards</span>
+            <span>Resources</span>
+            <span>Compliance</span>
+            <span>Laboratories</span>
+            <button>Menu</button>
+          </nav>
+
+          <button className="mobile-menu">
+            <Menu size={21} />
+          </button>
+        </div>
+      </header>
+
+      {/* Blue navigation */}
+      <div className="main-nav">
+        <div className="container nav-inner">
+          <span>Home</span>
+          <span>Know Your Standards</span>
+          <span>Certification</span>
+          <span>Testing Laboratories</span>
+          <span>BIS Services</span>
+        </div>
+      </div>
+
+      <main>
+
+        {/* Search hero */}
+        <section className="search-section">
+          <div className="container">
+
+            <div className="breadcrumb">
+              Home <ChevronRight size={14} /> BIS-SAKHI
+            </div>
+
+            <div className="search-heading">
+              <div>
+                <div className="eyebrow">BIS-SAKHI</div>
+                <h1>Find the standards and requirements for your product</h1>
+                <p>
+                  Describe what you manufacture or the BIS requirement you
+                  want to understand.
+                </p>
+              </div>
+            </div>
+
+            <form className="search-form" onSubmit={submit}>
+              <div className="search-input-wrap">
+                <Search size={21} />
+                <textarea
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      submit(e);
+                    }
+                  }}
+                  placeholder="Example: I manufacture motorcycle helmets. What BIS standard applies and where can I get it tested?"
+                  rows={2}
+                />
+              </div>
+
+              <button
+                className="search-button"
+                type="submit"
+                disabled={loading || !query.trim()}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="spin" size={18} />
+                    Searching
+                  </>
+                ) : (
+                  <>
+                    Search
+                    <Search size={17} />
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="example-row">
+              <span>Popular searches</span>
+
+              {examples.map((example) => (
+                <button
+                  key={example}
+                  type="button"
+                  onClick={() => {
+                    setQuery(example);
+                    const textarea = document.querySelector(".search-input-wrap textarea");
+                    if (textarea) textarea.focus();
+                  }}
+                >
+                  {example}
+                </button>
+              ))}
+            </div>
+
+          </div>
+        </section>
+
+        {/* Loading state indicator */}
+        {loading && (
+          <div className="container" id="search-results-anchor">
+            <div className="loading-state">
+              <Loader2 className="spin" size={30} />
+              <h3>Consulting BIS-SAKHI Knowledge Base...</h3>
+              <p>
+                Retrieving verified Indian Standards, certification requirements,
+                and testing laboratories.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Error notification */}
+        {error && !loading && (
+          <div className="container" id="search-results-anchor">
+            <div className="error-message">
+              <AlertTriangle size={20} />
+              <div>
+                <strong>Backend Service Notice</strong>
+                <p>{error}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Homepage Empty State */}
+        {!result && !loading && (
+          <div className="homepage-content">
+            {/* Services Section */}
+            <section className="services-section">
+              <div className="container">
+                <div className="home-section-header">
+                  <div className="eyebrow">GUIDANCE & CAPABILITIES</div>
+                  <h2>What can BIS-SAKHI help you with?</h2>
+                </div>
+
+                <div className="services-grid">
+                  <div className="service-card">
+                    <div className="service-card-icon">
+                      <FileText size={20} />
+                    </div>
+                    <div className="service-card-body">
+                      <h3>Find Indian Standards</h3>
+                      <p>
+                        Identify applicable Indian Standards (IS numbers), specifications, product scopes, and revision statuses.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="service-card">
+                    <div className="service-card-icon">
+                      <ShieldCheck size={20} />
+                    </div>
+                    <div className="service-card-body">
+                      <h3>Understand Certification</h3>
+                      <p>
+                        Determine mandatory ISI mark licensing, Compulsory Registration Scheme (CRS), and Quality Control Orders (QCO).
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="service-card">
+                    <div className="service-card-icon">
+                      <FlaskConical size={20} />
+                    </div>
+                    <div className="service-card-body">
+                      <h3>Find Testing Laboratories</h3>
+                      <p>
+                        Locate recognized BIS central and regional testing laboratories and empaneled private testing facilities.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Popular Compliance Pathways */}
+            <section className="pathways-overview-section">
+              <div className="container">
+                <div className="home-section-header">
+                  <div className="eyebrow">FREQUENTLY QUERIED STANDARDS</div>
+                  <h2>Popular compliance pathways</h2>
+                </div>
+
+                <div className="pathway-cards-grid">
+                  {popularPathways.map((item) => (
+                    <button
+                      key={item.title}
+                      type="button"
+                      className="pathway-card"
+                      onClick={() => {
+                        setQuery(item.query);
+                        const textarea = document.querySelector(".search-input-wrap textarea");
+                        if (textarea) textarea.focus();
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                    >
+                      <div className="pathway-card-title-row">
+                        <strong>{item.title}</strong>
+                        <ChevronRight size={15} />
+                      </div>
+                      <div className="pathway-card-standard">{item.standard}</div>
+                      <p className="pathway-card-desc">{item.desc}</p>
+                      <div className="pathway-card-scheme">{item.scheme}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* Result */}
+        <div className="container" id="search-results-anchor">
+
+          {result?.abstained && (
+            <section className="result-area">
+              <div className="page-title">
+                <div className="eyebrow">SAFE ABSTENTION</div>
+                <h2>Product Not Confidently Identified</h2>
+              </div>
+
+              <div className="abstention">
+                <AlertTriangle size={24} />
+                <div>
+                  <strong>Product not identified in verified knowledge base</strong>
+                  <p>
+                    {result.message ||
+                      "I could not confidently identify a product covered by my verified BIS-SAKHI knowledge base."}
+                  </p>
+                  <span>
+                    {result.next_step ||
+                      "Please describe the product more specifically."}
+                  </span>
+                  {result.ai_intent?.intent === "unsupported" && (
+                    <p className="abstention-unsupported">
+                      Note: This query may fall outside mandatory Indian Standards or BIS certification schemes currently recorded in the system.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="new-search">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResult(null);
+                    setQuery("");
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                >
+                  Start another search
+                </button>
+              </div>
+            </section>
+          )}
+
+          {result && !result.abstained && (
+            <section className="result-area">
+
+              {/* Result heading */}
+              <div className="result-heading">
+                <div>
+                  <div className="eyebrow">BIS-SAKHI RESULT</div>
+                  <h2>Compliance information</h2>
+                </div>
+
+                <div className="confidence">
+                  <ShieldCheck size={16} />
+                  {Math.round(result.confidence * 100)}% confidence
+                </div>
+              </div>
+
+              {/* Product */}
+              {result.intent !== "hallmarking" && (
+                <div className="product-result">
+                  <div className="product-result-main">
+                    <div>
+                      <div className="eyebrow">PRODUCT IDENTIFIED</div>
+                      <h3>{result.detected_product?.name}</h3>
+                      <p>{result.detected_product?.category}</p>
+                    </div>
+
+                    {result.ai_intent?.intent && (
+                      <div className="ai-intent-tag">
+                        <span>Query intent:</span>{" "}
+                        {formatIntent(result.ai_intent.intent)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Hallmarking Guidance */}
+              {result.intent === "hallmarking" &&
+                result.hallmarking &&
+                !result.abstained && (
+                  <section className="hallmarking-result">
+                    <div className="section-heading">
+                      <div>
+                        <div className="eyebrow">HALLMARKING GUIDANCE</div>
+                        <h2>
+                          {result.hallmarking.topic
+                            ?.replace(/_/g, " ")
+                            .replace(/\b\w/g, (char) => char.toUpperCase())}
+                        </h2>
+                      </div>
+                    </div>
+
+                    <div className="hallmarking-card">
+                      <p>{result.hallmarking.answer}</p>
+
+                      {result.hallmarking.source && (
+                        <div className="evidence-section">
+                          <div className="data-label">
+                            <FileText size={17} />
+                            OFFICIAL BIS SOURCE
+                          </div>
+
+                          <div className="evidence-list">
+                            <a
+                              href={result.hallmarking.source.url}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              <span>{result.hallmarking.source.name}</span>
+                              <ExternalLink size={14} />
+                            </a>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                )}
+
+              {result.intent !== "hallmarking" && (
+                <>
+                  {/* Pathway */}
+                  <div className="pathway">
+                    <div className="section-heading">
+                      <div>
+                        <div className="eyebrow">COMPLIANCE PATHWAY</div>
+                        <h2>Applicable requirements flow</h2>
+                      </div>
+                    </div>
+
+                    <div className="pathway-line">
+                      <div className="path-step active">
+                        <span>01</span>
+                        <strong>Product</strong>
+                      </div>
+
+                      <div className="path-connector active"></div>
+
+                      <div className="path-step active">
+                        <span>02</span>
+                        <strong>Standard</strong>
+                      </div>
+
+                      <div className="path-connector active"></div>
+
+                      <div className="path-step active">
+                        <span>03</span>
+                        <strong>Certification</strong>
+                      </div>
+
+                      <div className="path-connector active"></div>
+
+                      <div className="path-step active">
+                        <span>04</span>
+                        <strong>Testing</strong>
+                      </div>
+
+                      <div className="path-connector active"></div>
+
+                      <div className="path-step active">
+                        <span>05</span>
+                        <strong>Next steps</strong>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+              
+              {/* Standards */}
+              {result.compliance_pathway?.standards?.map((standard) => (
+                <div className="standard-result" key={standard.number}>
+
+                  <div className="standard-top">
+                    <div>
+                      <div className="eyebrow">APPLICABLE INDIAN STANDARD</div>
+                      <h3>
+                        {standard.number}
+                        {standard.year && (
+                          <span className="standard-year">({standard.year})</span>
+                        )}
+                      </h3>
+                      <p>{standard.title}</p>
+                    </div>
+
+                    <span
+                      className={
+                        standard.status?.toLowerCase() === "active"
+                          ? "active-status"
+                          : "status-warning"
+                      }
+                    >
+                      {standard.status || "Status unverified"}
+                    </span>
+                  </div>
+
+                  <div className="standard-grid">
+
+                    {/* Certification */}
+                    <div className="data-block">
+                      <div className="data-label">
+                        <ShieldCheck size={17} />
+                        CERTIFICATION
+                      </div>
+
+                      <strong>
+                        {standard.certification?.scheme ||
+                          "Information unavailable"}
+                      </strong>
+
+                      {standard.certification?.scheme_code && (
+                        <div className="scheme-code">
+                          Scheme Code: {standard.certification.scheme_code}
+                        </div>
+                      )}
+
+                      {standard.certification?.requirement_status && (
+                        <span
+                          className={
+                            standard.certification.requirement_status
+                              ?.toLowerCase()
+                              .includes("de-notified") ||
+                            standard.certification.requirement_status
+                              ?.toLowerCase()
+                              .includes("warning")
+                              ? "status-warning"
+                              : "status-required"
+                          }
+                        >
+                          {standard.certification.requirement_status}
+                        </span>
+                      )}
+
+                      {standard.certification?.description && (
+                        <p>{standard.certification.description}</p>
+                      )}
+
+                      {standard.certification?.source && (
+                        <div className="cert-source-link">
+                          <a
+                            href={standard.certification.source}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <span>Official Scheme Documentation</span>
+                            <ExternalLink size={13} />
+                          </a>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Labs */}
+                    <div className="data-block">
+                      <div className="data-label">
+                        <FlaskConical size={17} />
+                        TESTING
+                      </div>
+
+                      <strong>
+                        {standard.laboratories?.length || 0} recognized laboratories
+                      </strong>
+
+                      <p>
+                        Testing laboratories recognized by BIS for this standard
+                        scope are listed below.
+                      </p>
+                    </div>
+
+                  </div>
+
+                  {/* Laboratories */}
+                  <div className="laboratory-section">
+                    <div className="data-label">
+                      <FlaskConical size={17} />
+                      RELEVANT TESTING LABORATORIES
+                    </div>
+
+                    {standard.laboratories && standard.laboratories.length > 0 ? (
+                      <div className="laboratory-table">
+                        {standard.laboratories.map((lab, index) => (
+                          <div className="laboratory-row" key={index}>
+                            <div className="lab-number">
+                              {String(index + 1).padStart(2, "0")}
+                            </div>
+
+                            <div className="lab-name">
+                              <strong>{lab.name}</strong>
+                              {lab.code && (
+                                <span>Lab Code: {lab.code}</span>
+                              )}
+                            </div>
+
+                            <ExternalLink size={16} />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="no-data-notice">
+                        No specific testing laboratories currently recorded for this standard in the database.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Evidence */}
+                  {standard.evidence && standard.evidence.length > 0 && (
+                    <div className="evidence-section">
+                      <div className="data-label">
+                        <FileText size={17} />
+                        VERIFIED EVIDENCE & OFFICIAL SOURCES
+                      </div>
+
+                      <div className="evidence-list">
+                        {standard.evidence.map((item, index) => (
+                          <a
+                            href={item.source}
+                            target="_blank"
+                            rel="noreferrer"
+                            key={index}
+                          >
+                            <span>{item.type}</span>
+                            <ExternalLink size={14} />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                </div>
+              ))}
+
+              {/* Warnings */}
+              {result.warnings?.length > 0 && (
+                <div className="warning-section">
+                  <AlertTriangle size={20} />
+
+                  <div>
+                    <strong>Important Regulatory Warnings</strong>
+
+                    {result.warnings.map((warning, index) => (
+                      <p key={index}>{warning}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Next steps */}
+              {result.compliance_pathway?.next_steps?.length > 0 && (
+                <div className="next-steps">
+                  <div className="section-heading">
+                    <div>
+                      <div className="eyebrow">NEXT STEPS</div>
+                      <h2>What to do next</h2>
+                    </div>
+                  </div>
+
+                  <div className="steps-list">
+                    {result.compliance_pathway.next_steps.map(
+                      (step, index) => (
+                        <div className="next-step" key={index}>
+                          <span>{index + 1}</span>
+                          <p>{step}</p>
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="new-search">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResult(null);
+                    setQuery("");
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                >
+                  Start another search
+                </button>
+              </div>
+
+            </section>
+          )}
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer>
+        <div className="container footer-inner">
+          <div>
+            <strong>BIS-SAKHI</strong>
+            <p>
+              AI-powered assistance for Indian Standards and BIS services.
+            </p>
+          </div>
+
+          <div className="footer-links">
+            <span>Standards</span>
+            <span>Certification</span>
+            <span>Laboratories</span>
+            <span>BIS Services</span>
+          </div>
+
+          <div className="footer-copy">
+            Evidence-first · Confidence-aware · Safe by design
+          </div>
+        </div>
+
+        <div className="footer-bottom">
+          <div className="container">
+            <div className="footer-disclaimer">
+              BIS-SAKHI is a student prototype developed for Smart India Hackathon 2026.
+            </div>
+          </div>
+        </div>
+      </footer>
+
+    </div>
+  );
+}
+
+export default App;

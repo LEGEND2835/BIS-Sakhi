@@ -1,5 +1,6 @@
 const express = require("express");
 const db = require("../config/db");
+const { understandQuery } = require("../services/groq");
 
 const router = express.Router();
 
@@ -14,14 +15,42 @@ router.post("/", async (req, res, next) => {
       });
     }
 
+    // ---------------------------------------------------------
+    // Call Groq query-understanding service
+    // ---------------------------------------------------------
+    let aiIntent = null;
+    try {
+      const rawAiResult = await understandQuery(query);
+      if (rawAiResult && typeof rawAiResult === "object") {
+        aiIntent = {
+          product: rawAiResult.product ?? null,
+          intent: rawAiResult.intent ?? null,
+          battery_chemistry: rawAiResult.battery_chemistry ?? null,
+          language: rawAiResult.language ?? null
+        };
+      }
+    } catch (groqError) {
+      console.warn(
+        "Groq query understanding unavailable, falling back to deterministic detection:",
+        groqError.message
+      );
+      aiIntent = null;
+    }
+
     const text = query.toLowerCase();
 
     // ---------------------------------------------------------
-    // 1. Detect battery chemistry
+    // 1. Detect battery chemistry (AI hint with deterministic fallback)
     // ---------------------------------------------------------
     let batteryChemistry = null;
 
     if (
+      aiIntent &&
+      (aiIntent.battery_chemistry === "lithium" ||
+        aiIntent.battery_chemistry === "nickel")
+    ) {
+      batteryChemistry = aiIntent.battery_chemistry;
+    } else if (
       text.includes("lithium") ||
       text.includes("li-ion") ||
       text.includes("li ion") ||
@@ -36,26 +65,165 @@ router.post("/", async (req, res, next) => {
       batteryChemistry = "nickel";
     }
 
+        // ---------------------------------------------------------
+    // 1A. Hallmarking guidance
     // ---------------------------------------------------------
-    // 2. Detect product from verified database keywords
-    // ---------------------------------------------------------
-    const productResult = await db.query(
-      `
-      SELECT id, name, category, keywords
-      FROM products
-      WHERE keywords IS NOT NULL
-        AND EXISTS (
-          SELECT 1
-          FROM unnest(keywords) AS keyword
-          WHERE $1 ILIKE '%' || keyword || '%'
-        )
-      ORDER BY array_length(keywords, 1) DESC
-      LIMIT 1;
-      `,
-      [text]
-    );
+    if (aiIntent && aiIntent.intent === "hallmarking") {
+      const hallmarkResult = await db.query(
+        `
+        SELECT
+          hg.topic,
+          hg.question_pattern,
+          hg.answer,
+          s.name AS source_name,
+          s.url AS source_url
+        FROM hallmarking_guidance hg
+        LEFT JOIN sources s
+          ON s.id = hg.source_id
+        ORDER BY hg.id;
+        `
+      );
 
-    const matchedProduct = productResult.rows[0] || null;
+      // Ignore generic conversational words.
+      const stopWords = new Set([
+        "how", "what", "where", "when", "why",
+        "can", "could", "would", "should",
+        "do", "does", "did",
+        "i", "my", "me", "the", "a", "an",
+        "is", "are", "to", "for", "of",
+        "on", "in", "and", "or", "with"
+      ]);
+
+      const queryWords = new Set(
+        query
+          .toLowerCase()
+          .replace(/[^a-z0-9\s-]/g, " ")
+          .split(/\s+/)
+          .filter(word => word.length >= 3 && !stopWords.has(word))
+      );
+
+      let bestMatch = null;
+      let bestScore = 0;
+
+      for (const row of hallmarkResult.rows) {
+        const patterns = row.question_pattern
+          .split(";")
+          .map(pattern => pattern.trim());
+
+        for (const pattern of patterns) {
+          const patternWords = pattern
+            .toLowerCase()
+            .replace(/[^a-z0-9\s-]/g, " ")
+            .split(/\s+/)
+            .filter(word => word.length >= 3 && !stopWords.has(word));
+
+          let score = 0;
+
+          for (const word of patternWords) {
+            if (queryWords.has(word)) {
+              score++;
+            }
+          }
+
+          if (score > bestScore) {
+            bestScore = score;
+            bestMatch = row;
+          }
+        }
+      }
+
+      if (bestMatch && bestScore >= 2) {
+        return res.json({
+          status: "success",
+          query,
+          detected_product: null,
+          confidence: 0.95,
+          abstained: false,
+          intent: "hallmarking",
+          hallmarking: {
+            topic: bestMatch.topic,
+            answer: bestMatch.answer,
+            source: bestMatch.source_url
+              ? {
+                  name: bestMatch.source_name,
+                  url: bestMatch.source_url
+                }
+              : null
+          },
+          ai_intent: aiIntent
+        });
+      }
+
+      return res.json({
+        status: "success",
+        query,
+        detected_product: null,
+        confidence: 0,
+        abstained: true,
+        intent: "hallmarking",
+        message:
+          "I could not find a verified Hallmarking answer for that question.",
+        next_step:
+          "Please ask about HUID, hallmark verification, jewellery testing, jeweller registration, or another specific Hallmarking topic.",
+        ai_intent: aiIntent
+      });
+    }
+
+    // ---------------------------------------------------------
+    // 2. Detect product from verified database
+    //    (AI product hint primary, deterministic query fallback)
+    // ---------------------------------------------------------
+    let matchedProduct = null;
+
+    if (aiIntent && aiIntent.product && typeof aiIntent.product === "string") {
+      const aiProduct = aiIntent.product.toLowerCase().trim();
+      const aiProductResult = await db.query(
+        `
+        SELECT id, name, category, keywords
+        FROM products
+        WHERE keywords IS NOT NULL
+          AND (
+            $1 ILIKE '%' || name || '%'
+            OR name ILIKE '%' || $1 || '%'
+            OR EXISTS (
+              SELECT 1
+              FROM unnest(keywords) AS keyword
+              WHERE $1 ILIKE '%' || keyword || '%'
+                 OR keyword ILIKE '%' || $1 || '%'
+            )
+          )
+        ORDER BY array_length(keywords, 1) DESC
+        LIMIT 1;
+        `,
+        [aiProduct]
+      );
+
+      if (aiProductResult.rows.length > 0) {
+        matchedProduct = aiProductResult.rows[0];
+      }
+    }
+
+    // Fallback: existing deterministic database detection using raw query text
+    if (!matchedProduct) {
+      const productResult = await db.query(
+        `
+        SELECT id, name, category, keywords
+        FROM products
+        WHERE keywords IS NOT NULL
+          AND EXISTS (
+            SELECT 1
+            FROM unnest(keywords) AS keyword
+            WHERE $1 ILIKE '%' || keyword || '%'
+          )
+        ORDER BY array_length(keywords, 1) DESC
+        LIMIT 1;
+        `,
+        [text]
+      );
+
+      matchedProduct = productResult.rows[0] || null;
+    }
+
     const productName = matchedProduct
       ? matchedProduct.name
       : null;
@@ -72,7 +240,8 @@ router.post("/", async (req, res, next) => {
         message:
           "I could not confidently identify a product covered by my verified BIS-SAKHI knowledge base.",
         next_step:
-          "Please describe the product more specifically."
+          "Please describe the product more specifically.",
+        ai_intent: aiIntent
       });
     }
 
@@ -158,7 +327,8 @@ router.post("/", async (req, res, next) => {
         detected_product: productName,
         confidence: 0,
         abstained: true,
-        message: "No verified compliance information was found."
+        message: "No verified compliance information was found.",
+        ai_intent: aiIntent
       });
     }
 
@@ -291,7 +461,9 @@ router.post("/", async (req, res, next) => {
 
       evidence: standards.flatMap(
         standard => standard.evidence
-      )
+      ),
+
+      ai_intent: aiIntent
     });
   } catch (error) {
     next(error);

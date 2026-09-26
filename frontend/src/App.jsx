@@ -786,15 +786,63 @@ function App() {
 
                       <div className="evidence-list">
                         {standard.evidence.map((item, index) => (
-                          <a
-                            href={item.source}
-                            target="_blank"
-                            rel="noreferrer"
-                            key={index}
-                          >
-                            <span>{item.type}</span>
-                            <ExternalLink size={14} />
-                          </a>
+                          <div className="evidence-item" key={item.id || index}>
+                            <div className="evidence-item-header">
+                              <div>
+                                <strong>
+                                  {item.type
+                                    ?.replace(/_/g, " ")
+                                    .replace(/\b\w/g, (char) => char.toUpperCase())}
+                                </strong>
+
+                                {item.standard && (
+                                  <span className="evidence-standard">
+                                    {item.standard}
+                                  </span>
+                                )}
+                              </div>
+
+                              {item.source && (
+                                <a
+                                  href={item.source}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="evidence-source-link"
+                                >
+                                  <span>Official BIS Source</span>
+                                  <ExternalLink size={13} />
+                                </a>
+                              )}
+                            </div>
+
+                            {item.reference && (
+                              <p className="evidence-reference">
+                                {item.reference}
+                              </p>
+                            )}
+
+                            {(item.section_title || item.page_number) && (
+                              <div className="evidence-meta">
+                                {item.section_title && (
+                                  <span>
+                                    Section: {item.section_title}
+                                  </span>
+                                )}
+
+                                {item.page_number && (
+                                  <span>
+                                    Page: {item.page_number}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {item.source_name && (
+                              <div className="evidence-source-name">
+                                {item.source_name}
+                              </div>
+                            )}
+                          </div>
                         ))}
                       </div>
                     </div>

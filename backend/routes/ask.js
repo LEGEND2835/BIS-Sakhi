@@ -146,7 +146,7 @@ router.post("/", async (req, res, next) => {
           }
         }
       }
-      
+
       if (bestMatch && bestScore >= 2) {
         return sendLocalizedResponse(
           res,
@@ -173,19 +173,22 @@ router.post("/", async (req, res, next) => {
         );
       }
 
-      return res.json({
-        status: "success",
-        query,
-        detected_product: null,
-        confidence: 0,
-        abstained: true,
-        intent: "hallmarking",
-        message:
-          "I could not find a verified Hallmarking answer for that question.",
-        next_step:
-          "Please ask about HUID, hallmark verification, jewellery testing, jeweller registration, or another specific Hallmarking topic.",
-        ai_intent: aiIntent
-      });      
+      return sendLocalizedResponse(
+        res,
+        {
+          status: "success",
+          query,
+          detected_product: null,
+          confidence: 0,
+          abstained: true,
+          intent: "hallmarking",
+          message: "I could not find verified BIS hallmarking guidance for that query.",
+          next_step:
+            "Please ask about HUID, hallmark verification, jeweller registration, or hallmarking.",
+          ai_intent: aiIntent
+        },
+        aiIntent?.language
+      );
     }
 
     // Consumer guidance
@@ -539,6 +542,46 @@ router.post("/", async (req, res, next) => {
     }
 
     // ---------------------------------------------------------
+    // 4A. Retrieve verified evidence for matched standards
+    // ---------------------------------------------------------
+    const standardIds = [
+      ...new Set(
+        result.rows
+          .map(row => row.standard_id)
+          .filter(Boolean)
+      )
+    ];
+
+    let evidenceRows = [];
+
+    if (standardIds.length > 0) {
+      const evidenceResult = await db.query(
+        `
+        SELECT
+          e.id AS evidence_id,
+          e.standard_id,
+          e.evidence_type,
+          s.standard_number,
+          src.name AS source_name,
+          src.url AS source_url,
+          e.reference_text,
+          e.page_number,
+          e.section_title
+        FROM evidence e
+        LEFT JOIN standards s
+          ON s.id = e.standard_id
+        LEFT JOIN sources src
+          ON src.id = e.source_id
+        WHERE e.standard_id = ANY($1::int[])
+        ORDER BY e.id;
+        `,
+        [standardIds]
+      );
+
+      evidenceRows = evidenceResult.rows;
+    }
+
+    // ---------------------------------------------------------
     // 6. Build standards
     // ---------------------------------------------------------
     const standardsMap = new Map();
@@ -572,23 +615,6 @@ router.post("/", async (req, res, next) => {
           evidence: []
         });
 
-        // Add standard evidence
-        if (row.standard_source_url) {
-          standardsMap.get(row.standard_id).evidence.push({
-            type: "BIS standard",
-            standard: row.standard_number,
-            source: row.standard_source_url
-          });
-        }
-
-        // Add certification evidence
-        if (row.certification_source_url) {
-          standardsMap.get(row.standard_id).evidence.push({
-            type: "BIS certification",
-            standard: row.standard_number,
-            source: row.certification_source_url
-          });
-        }
       }
 
       const standard = standardsMap.get(row.standard_id);
@@ -615,6 +641,26 @@ router.post("/", async (req, res, next) => {
     const standards = Array.from(standardsMap.values());
 
     // ---------------------------------------------------------
+    // Attach verified database evidence to each standard
+    // ---------------------------------------------------------
+    for (const evidence of evidenceRows) {
+      const standard = standardsMap.get(evidence.standard_id);
+
+      if (!standard) continue;
+
+      standard.evidence.push({
+        id: evidence.evidence_id,
+        type: evidence.evidence_type,
+        standard: evidence.standard_number,
+        source_name: evidence.source_name,
+        source: evidence.source_url,
+        reference: evidence.reference_text,
+        page_number: evidence.page_number,
+        section_title: evidence.section_title
+      });
+    }
+
+    // ---------------------------------------------------------
     // 7. Product-specific warnings
     // ---------------------------------------------------------
     let warnings = [];
@@ -637,40 +683,44 @@ router.post("/", async (req, res, next) => {
     // ---------------------------------------------------------
     // 9. Response
     // ---------------------------------------------------------
-    res.json({
-      status: "success",
+    return sendLocalizedResponse(
+      res,
+      {
+        status: "success",
 
-      query,
+        query,
 
-      detected_product: {
-        name: result.rows[0].product,
-        category: result.rows[0].category
+        detected_product: {
+          name: result.rows[0].product,
+          category: result.rows[0].category
+        },
+
+        confidence: 0.98,
+        abstained: false,
+
+        compliance_pathway: {
+          standards,
+
+          certification: certifications,
+
+          next_steps: [
+            "Verify the current applicable BIS requirements.",
+            "Check the applicable certification scheme/product manual.",
+            "Use a BIS-recognized laboratory with the relevant testing scope.",
+            "Proceed with BIS certification requirements where applicable."
+          ]
+        },
+
+        warnings,
+
+        evidence: standards.flatMap(
+          standard => standard.evidence
+        ),
+
+        ai_intent: aiIntent
       },
-
-      confidence: 0.98,
-      abstained: false,
-
-      compliance_pathway: {
-        standards,
-
-        certification: certifications,
-
-        next_steps: [
-          "Verify the current applicable BIS requirements.",
-          "Check the applicable certification scheme/product manual.",
-          "Use a BIS-recognized laboratory with the relevant testing scope.",
-          "Proceed with BIS certification requirements where applicable."
-        ]
-      },
-
-      warnings,
-
-      evidence: standards.flatMap(
-        standard => standard.evidence
-      ),
-
-      ai_intent: aiIntent
-    });
+      aiIntent?.language
+    );
   } catch (error) {
     next(error);
   }

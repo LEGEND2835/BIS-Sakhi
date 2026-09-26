@@ -1175,3 +1175,14 @@ footer {
   flex-direction: column;
   gap: 0;
 }
+
+.evidence-clause {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 3px 8px;
+  border: 1px solid #d6e0ed;
+  background: #f5f8fc;
+  color: #16478c;
+  font-size: 12px;
+  font-weight: 600;
+}

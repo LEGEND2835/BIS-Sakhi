@@ -565,6 +565,7 @@ router.post("/", async (req, res, next) => {
           src.name AS source_name,
           src.url AS source_url,
           e.reference_text,
+          e.clause_reference,
           e.page_number,
           e.section_title
         FROM evidence e
@@ -655,6 +656,7 @@ router.post("/", async (req, res, next) => {
         source_name: evidence.source_name,
         source: evidence.source_url,
         reference: evidence.reference_text,
+        clause_reference: evidence.clause_reference,
         page_number: evidence.page_number,
         section_title: evidence.section_title
       });

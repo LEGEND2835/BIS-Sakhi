@@ -432,8 +432,8 @@ function App() {
               </div>
 
               {/* Product */}
-              {result.intent !== "hallmarking" && 
-                result.intent !== "consumer" && (  
+              {result.intent !== "hallmarking" &&
+                result.intent !== "consumer" && (
                 <div className="product-result">
                   <div className="product-result-main">
                     <div>
@@ -592,7 +592,7 @@ function App() {
                 )}
 
               {result.intent !== "hallmarking" &&
-                result.intent !== "certification_process" && 
+                result.intent !== "certification_process" &&
                 result.intent !== "consumer" && (
                 <>
                   {/* Pathway */}
@@ -641,7 +641,7 @@ function App() {
                   </div>
                 </>
               )}
-              
+
               {/* Standards */}
               {result.compliance_pathway?.standards?.map((standard) => (
                 <div className="standard-result" key={standard.number}>
@@ -798,6 +798,12 @@ function App() {
                                 {item.standard && (
                                   <span className="evidence-standard">
                                     {item.standard}
+                                  </span>
+                                )}
+
+                                {item.clause_reference && (
+                                  <span className="evidence-clause">
+                                    Clause {item.clause_reference}
                                   </span>
                                 )}
                               </div>

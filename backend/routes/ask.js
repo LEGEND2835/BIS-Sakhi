@@ -16,24 +16,53 @@ router.post("/", async (req, res, next) => {
 
     const text = query.toLowerCase();
 
-    // MVP product detection
-    let productName = null;
+    // ---------------------------------------------------------
+    // 1. Detect battery chemistry
+    // ---------------------------------------------------------
+    let batteryChemistry = null;
 
     if (
-         text.includes("helmet") ||
-         text.includes("motorcycle helmet") ||
-        text.includes("bike helmet")
+      text.includes("lithium") ||
+      text.includes("li-ion") ||
+      text.includes("li ion") ||
+      text.includes("lithium-ion")
     ) {
-         productName = "Motorcycle Helmet";
+      batteryChemistry = "lithium";
     } else if (
-         text.includes("packaged drinking water") ||
-        text.includes("packaged water") ||
-        text.includes("bottled drinking water")
+      text.includes("nickel") ||
+      text.includes("ni-mh") ||
+      text.includes("nimh")
     ) {
-         productName = "Packaged Drinking Water";
+      batteryChemistry = "nickel";
     }
 
-    // Safe abstention when product is not in our verified corpus
+    // ---------------------------------------------------------
+    // 2. Detect product from verified database keywords
+    // ---------------------------------------------------------
+    const productResult = await db.query(
+      `
+      SELECT id, name, category, keywords
+      FROM products
+      WHERE keywords IS NOT NULL
+        AND EXISTS (
+          SELECT 1
+          FROM unnest(keywords) AS keyword
+          WHERE $1 ILIKE '%' || keyword || '%'
+        )
+      ORDER BY array_length(keywords, 1) DESC
+      LIMIT 1;
+      `,
+      [text]
+    );
+
+    const matchedProduct = productResult.rows[0] || null;
+    const productName = matchedProduct
+      ? matchedProduct.name
+      : null;
+
+    // ---------------------------------------------------------
+    // 3. Safe abstention
+    // ---------------------------------------------------------
     if (!productName) {
       return res.json({
         status: "success",
@@ -47,34 +76,80 @@ router.post("/", async (req, res, next) => {
       });
     }
 
-    // Retrieve verified compliance information
+    // ---------------------------------------------------------
+    // 4. Retrieve standards + certification + labs + evidence
+    // ---------------------------------------------------------
     const result = await db.query(
       `
       SELECT
         p.name AS product,
         p.category,
+
+        s.id AS standard_id,
         s.standard_number,
         s.title,
         s.status,
         s.year,
+
         l.lab_name,
         l.lab_code,
-        src.url AS source_url
+
+        standard_src.url AS standard_source_url,
+
+        cs.name AS certification_scheme,
+        cs.scheme_code,
+        pc.requirement_status,
+        pc.description AS certification_description,
+        cert_src.url AS certification_source_url
+
       FROM products p
+
       JOIN product_standards ps
         ON p.id = ps.product_id
+
       JOIN standards s
         ON s.id = ps.standard_id
+
       LEFT JOIN lab_scopes ls
         ON ls.standard_id = s.id
+
       LEFT JOIN labs l
         ON l.id = ls.lab_id
-      LEFT JOIN sources src
-        ON src.id = s.source_id
+
+      LEFT JOIN sources standard_src
+        ON standard_src.id = s.source_id
+
+      LEFT JOIN product_certifications pc
+        ON pc.product_id = p.id
+        AND pc.standard_id = s.id
+
+      LEFT JOIN certification_schemes cs
+        ON cs.id = pc.scheme_id
+
+      LEFT JOIN sources cert_src
+        ON cert_src.id = pc.source_id
+
       WHERE p.name = $1
-      ORDER BY l.lab_name;
+
+        AND (
+          $2::text IS NULL
+
+          OR (
+            $2 = 'lithium'
+            AND s.standard_number = 'IS 16046 (Part 2):2018'
+          )
+
+          OR (
+            $2 = 'nickel'
+            AND s.standard_number = 'IS 16046 (Part 1):2018'
+          )
+        )
+
+      ORDER BY
+        s.standard_number,
+        l.lab_name;
       `,
-      [productName]
+      [productName, batteryChemistry]
     );
 
     if (result.rows.length === 0) {
@@ -87,46 +162,122 @@ router.post("/", async (req, res, next) => {
       });
     }
 
-    const first = result.rows[0];
+    // ---------------------------------------------------------
+    // 5. Build standards
+    // ---------------------------------------------------------
+    const standardsMap = new Map();
 
-    const laboratories = result.rows
-      .filter(row => row.lab_name)
-      .map(row => ({
-        name: row.lab_name,
-        code: row.lab_code
-      }));
+    for (const row of result.rows) {
+      if (!standardsMap.has(row.standard_id)) {
+        standardsMap.set(row.standard_id, {
+          number: row.standard_number,
+          title: row.title,
+          year: row.year,
+          status: row.status,
 
+          certification: row.certification_scheme
+            ? {
+                scheme: row.certification_scheme,
+                scheme_code: row.scheme_code,
+                requirement_status: row.requirement_status,
+                description: row.certification_description,
+                source: row.certification_source_url || null
+              }
+            : {
+                scheme: null,
+                scheme_code: null,
+                requirement_status: "not_loaded",
+                description: "Certification information is not available.",
+                source: null
+              },
+
+          laboratories: [],
+
+          evidence: []
+        });
+
+        // Add standard evidence
+        if (row.standard_source_url) {
+          standardsMap.get(row.standard_id).evidence.push({
+            type: "BIS standard",
+            standard: row.standard_number,
+            source: row.standard_source_url
+          });
+        }
+
+        // Add certification evidence
+        if (row.certification_source_url) {
+          standardsMap.get(row.standard_id).evidence.push({
+            type: "BIS certification",
+            standard: row.standard_number,
+            source: row.certification_source_url
+          });
+        }
+      }
+
+      const standard = standardsMap.get(row.standard_id);
+
+      // -------------------------------------------------------
+      // Add laboratory only when one exists
+      // -------------------------------------------------------
+      if (row.lab_name) {
+        const alreadyAdded = standard.laboratories.some(
+          lab =>
+            lab.code === row.lab_code &&
+            lab.name === row.lab_name
+        );
+
+        if (!alreadyAdded) {
+          standard.laboratories.push({
+            name: row.lab_name,
+            code: row.lab_code
+          });
+        }
+      }
+    }
+
+    const standards = Array.from(standardsMap.values());
+
+    // ---------------------------------------------------------
+    // 6. Product-specific warnings
+    // ---------------------------------------------------------
+    let warnings = [];
+
+    if (productName === "Motorcycle Helmet") {
+      warnings = [
+        "IS 4151:1993 is withdrawn.",
+        "Use the current IS 4151:2015 record."
+      ];
+    }
+
+    // ---------------------------------------------------------
+    // 7. Build certification summary
+    // ---------------------------------------------------------
+    const certifications = standards.map(standard => ({
+      standard: standard.number,
+      ...standard.certification
+    }));
+
+    // ---------------------------------------------------------
+    // 8. Response
+    // ---------------------------------------------------------
     res.json({
       status: "success",
 
       query,
 
       detected_product: {
-        name: first.product,
-        category: first.category
+        name: result.rows[0].product,
+        category: result.rows[0].category
       },
 
       confidence: 0.98,
       abstained: false,
 
       compliance_pathway: {
-        standard: {
-          number: first.standard_number,
-          title: first.title,
-          year: first.year,
-          status: first.status
-        },
+        standards,
 
-        certification: {
-          status: "information_not_yet_loaded",
-          message:
-            "Certification scheme data will be added from verified BIS sources."
-        },
-
-        testing: {
-          available: laboratories.length > 0,
-          laboratories
-        },
+        certification: certifications,
 
         next_steps: [
           "Verify the current applicable BIS requirements.",
@@ -136,21 +287,11 @@ router.post("/", async (req, res, next) => {
         ]
       },
 
-      warnings:
-        productName === "Motorcycle Helmet"
-            ? [
-                "IS 4151:1993 is withdrawn.",
-                "Use the current IS 4151:2015 record."
-            ]
-            : [],
+      warnings,
 
-      evidence: [
-        {
-          type: "BIS standard",
-          standard: first.standard_number,
-          source: first.source_url
-        }
-      ]
+      evidence: standards.flatMap(
+        standard => standard.evidence
+      )
     });
   } catch (error) {
     next(error);

@@ -21,12 +21,12 @@ ON CONFLICT (name) DO NOTHING;
 
 -- PRODUCT
 INSERT INTO products
-    (name, category, description)
+    (name, category, description, keywords)
 VALUES
 (
     'Packaged Drinking Water',
     'Packaged Drinking Water',
-    'Packaged drinking water other than packaged natural mineral water.'
+    'Packaged drinking water other than packaged natural mineral water.', ARRAY['packaged drinking water','drinking water','packaged water','water']
 )
 ON CONFLICT (name) DO NOTHING;
 

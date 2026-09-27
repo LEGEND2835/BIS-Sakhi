@@ -81,6 +81,17 @@ CREATE TABLE product_certifications (
     source_id INTEGER REFERENCES sources(id) ON DELETE SET NULL
 );
 
+-- 8. CERTIFICATION PROCESS
+CREATE TABLE certification_process (
+    id SERIAL PRIMARY KEY,
+    topic VARCHAR(100) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    step_order INTEGER NOT NULL,
+    description TEXT NOT NULL,
+    source_id INTEGER REFERENCES sources(id) ON DELETE SET NULL,
+    source_url TEXT
+);
+
 -- 8. LABORATORIES
 CREATE TABLE labs (
     id SERIAL PRIMARY KEY,

@@ -120,6 +120,21 @@ router.post("/", async (req, res, next) => {
       let bestMatch = null;
       let bestScore = 0;
 
+      // Prioritize HUID verification queries, including Hindi/Hinglish
+      // and other multilingual queries containing stable HUID/check terms.
+      const huidVerificationQuery =
+        /\bhuid\b/i.test(query) &&
+        /\b(check|verify|verification|genuine|validate|authenticate|kaise|kare|karein|karu|कैसे|करें|करना|जांच|सत्यापन)\b/i.test(
+          query
+        );
+
+      if (huidVerificationQuery) {
+        bestMatch = hallmarkResult.rows.find(
+          row => row.topic === "huid_verification"
+        );
+        bestScore = bestMatch ? 2 : 0;
+      }
+
       for (const row of hallmarkResult.rows) {
         const patterns = row.question_pattern
           .split(";")

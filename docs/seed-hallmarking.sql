@@ -86,9 +86,19 @@ CREATE TABLE IF NOT EXISTS hallmarking_guidance (
 );
 
 -- If the table already existed before the UNIQUE constraint was added to
--- the schema, add it now so reruns cannot duplicate guidance rows.
+-- the schema, reconcile any duplicate guidance rows and add the constraint
+-- so reruns cannot duplicate guidance rows.
 DO $$
 BEGIN
+    -- Deduplicate pre-existing rows that share (topic, question_pattern),
+    -- keeping the earliest inserted row (lowest id) of each pair so one
+    -- valid row always survives. Distinct rows are never touched.
+    DELETE FROM hallmarking_guidance hg
+    USING hallmarking_guidance keep_row
+    WHERE hg.topic = keep_row.topic
+      AND hg.question_pattern = keep_row.question_pattern
+      AND hg.id > keep_row.id;
+
     IF NOT EXISTS (
         SELECT 1
         FROM pg_constraint

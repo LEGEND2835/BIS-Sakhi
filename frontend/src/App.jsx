@@ -181,11 +181,12 @@ function App() {
       });
 
       let data = null;
+      let parseFailed = false;
       try {
         data = await response.json();
       } catch {
-        // Non-JSON response body (e.g. an HTML error page from a proxy).
-        data = null;
+        // Body was not valid JSON (e.g. an HTML error page from a proxy).
+        parseFailed = true;
       }
 
       if (!response.ok) {
@@ -197,6 +198,16 @@ function App() {
         );
         apiError.isApiError = true;
         throw apiError;
+      }
+
+      if (parseFailed || data === null || typeof data !== "object") {
+        // The backend returned 200 OK but the body could not be read as a
+        // JSON object, so the result must not be silently discarded.
+        const parseError = new Error(
+          "The BIS-SAKHI backend returned a response that could not be read. Please try again in a moment."
+        );
+        parseError.isApiError = true;
+        throw parseError;
       }
 
       setResult(data);

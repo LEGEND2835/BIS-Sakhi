@@ -42,6 +42,12 @@ const HINDI_GLOSSARY = {
   "next steps": "अगले चरण",
 };
 
+/**
+ * Replace recognized BIS identifiers, acronyms, and URLs with translation tokens.
+ * @param {string} text - Source text containing technical entities.
+ * @returns {{protectedText: string, entities: Array<{token: string, value: string}>}}
+ * Text with placeholders and the mappings needed to restore each entity.
+ */
 function protectEntities(text) {
   const entities = [];
 
@@ -74,6 +80,12 @@ function protectEntities(text) {
   };
 }
 
+/**
+ * Replace entity placeholders with their original values after translation.
+ * @param {string} text - Translated text containing placeholders.
+ * @param {Array<{token: string, value: string}>} entities - Protected mappings.
+ * @returns {string} Text with all matching placeholders restored.
+ */
 function restoreEntities(text, entities) {
   let restored = text;
 
@@ -84,6 +96,12 @@ function restoreEntities(text, entities) {
   return restored;
 }
 
+/**
+ * Check that every recognized source entity appears in the translated text.
+ * @param {string} original - Source text used to identify protected entities.
+ * @param {string} translated - Translation after entity restoration.
+ * @returns {{valid: boolean, missing: ?string}} The first missing entity, if any.
+ */
 function verifyEntities(original, translated) {
   const { entities } = protectEntities(original);
 
@@ -102,6 +120,11 @@ function verifyEntities(original, translated) {
   };
 }
 
+/**
+ * Build Hindi glossary entries or general terminology guidance for translation.
+ * @param {string} language - Supported target language code.
+ * @returns {string} Terminology instructions for the translation prompt.
+ */
 function buildGlossary(language) {
   if (language === "hi") {
     return Object.entries(HINDI_GLOSSARY)
@@ -116,6 +139,16 @@ Do not invent translations for official identifiers.
 `;
 }
 
+/**
+ * Translate prose with Groq while protecting recognized technical entities.
+ * Empty text and English bypass translation. Unsupported languages, empty model
+ * output, or missing entities return the original text with a failure reason.
+ * @param {string} text - English source text.
+ * @param {string} language - Target language code from SUPPORTED_LANGUAGES.
+ * @returns {Promise<{text: string, verified: boolean, reason: ?string}>}
+ * Translation result and entity verification status.
+ * @throws {Error} If the Groq request fails.
+ */
 async function translateToLanguage(text, language) {
   if (!text || !text.trim()) {
     return {

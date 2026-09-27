@@ -5,6 +5,9 @@ const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
+/**
+ * Run a manual Groq connectivity check and log the reply or request error.
+ */
 async function test() {
   try {
     const response = await groq.chat.completions.create({

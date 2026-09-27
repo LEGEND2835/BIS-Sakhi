@@ -37,6 +37,7 @@ export const BIS_LINKS = {
     "https://www.bis.gov.in/consumer-overview/consumer-overviews/consumer-protection/?lang=en",
 };
 
+/** Wrap informational content in a shared breadcrumb, heading, and layout. */
 function PageShell({ eyebrow, title, intro, children }) {
   return (
     <div className="static-page">
@@ -59,6 +60,7 @@ function PageShell({ eyebrow, title, intro, children }) {
   );
 }
 
+/** Render a labeled official resource link that opens in a new tab. */
 function OfficialLink({ href, label }) {
   return (
     <a className="inline-official-link" href={href} target="_blank" rel="noreferrer">
@@ -70,6 +72,7 @@ function OfficialLink({ href, label }) {
 
 /* ---------------- STANDARDS ---------------- */
 
+/** Render standards discovery guidance and links to official standard lookup. */
 export function StandardsPage() {
   return (
     <PageShell
@@ -140,6 +143,7 @@ export function StandardsPage() {
 
 /* ---------------- CERTIFICATION ---------------- */
 
+/** Render BIS certification scheme summaries and application process guidance. */
 export function CertificationPage() {
   return (
     <PageShell
@@ -228,6 +232,7 @@ export function CertificationPage() {
 
 /* ---------------- LABORATORIES ---------------- */
 
+/** Render laboratory selection guidance and links to official BIS LIMS tools. */
 export function LaboratoriesPage() {
   return (
     <PageShell
@@ -302,6 +307,7 @@ export function LaboratoriesPage() {
 
 /* ---------------- BIS SERVICES ---------------- */
 
+/** Render BIS service summaries with links to their official resources. */
 export function ServicesPage() {
   const services = [
     {
@@ -375,6 +381,7 @@ export function ServicesPage() {
 
 /* ---------------- RESOURCES ---------------- */
 
+/** Render the directory of official BIS portals and reference resources. */
 export function ResourcesPage() {
   const resources = [
     {
@@ -434,6 +441,7 @@ export function ResourcesPage() {
 
 /* ---------------- COMPLIANCE ---------------- */
 
+/** Render the compliance pathway from product identification to next steps. */
 export function CompliancePage() {
   const steps = [
     {

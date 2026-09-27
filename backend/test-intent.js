@@ -2,6 +2,9 @@ require("dotenv").config();
 
 const { understandQuery } = require("./services/groq");
 
+/**
+ * Run sample helmet and battery questions through Groq and log intent or errors.
+ */
 async function test() {
   const queries = [
     "I manufacture motorcycle helmets. What BIS standard applies and where can I get it tested?",

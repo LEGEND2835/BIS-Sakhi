@@ -42,6 +42,7 @@ const STATIC_ROUTES = {
   "/compliance": CompliancePage,
 };
 
+/** Render the informational page for a known path, or null for other paths. */
 function StaticPage({ path }) {
   const Page = STATIC_ROUTES[path];
   return Page ? <Page /> : null;
@@ -85,6 +86,7 @@ const popularPathways = [
   },
 ];
 
+/** Return a display label for an intent, or null when no intent is supplied. */
 function formatIntent(intent) {
   if (!intent) return null;
   const intentMap = {
@@ -101,6 +103,7 @@ function formatIntent(intent) {
   return intentMap[intent] || intent.replace(/_/g, " ");
 }
 
+/** Render navigation, informational routes, and the interactive BIS query flow. */
 function App() {
   const [query, setQuery] = useState("");
   const [result, setResult] = useState(null);
@@ -117,6 +120,10 @@ function App() {
     setMobileOpen(false);
   }, [path]);
 
+  /**
+   * Submit a nonblank question with the selected language hint and update the UI.
+   * Defaults to the current query; displays results or a connection error.
+   */
   async function askSakhi(question = query) {
     if (!question.trim()) return;
 
@@ -163,6 +170,7 @@ function App() {
     }
   }
 
+  /** Prevent form navigation when an event is supplied and submit the query. */
   function submit(e) {
     if (e && e.preventDefault) e.preventDefault();
     askSakhi();

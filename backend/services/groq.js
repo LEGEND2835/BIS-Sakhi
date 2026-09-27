@@ -4,6 +4,12 @@ const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
+/**
+ * Ask Groq to extract the product, intent, battery chemistry, and query language.
+ * @param {string} query - The user's BIS question.
+ * @returns {Promise<Object>} Parsed structured query metadata.
+ * @throws {Error} If the API request or JSON parsing fails.
+ */
 async function understandQuery(query) {
   const response = await groq.chat.completions.create({
     model: process.env.GROQ_MODEL,

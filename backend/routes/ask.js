@@ -5,6 +5,13 @@ const { localizeResponse } = require("../services/localize");
 
 const router = express.Router();
 
+/**
+ * Send localized JSON, falling back to the original response if localization fails.
+ * @param {import("express").Response} res - Response used to send the JSON body.
+ * @param {Object} response - Original guidance payload.
+ * @param {string} language - Requested language name or code.
+ * @returns {Promise<import("express").Response>} The sent response.
+ */
 async function sendLocalizedResponse(res, response, language) {
   try {
     const localized = await localizeResponse(response, language);

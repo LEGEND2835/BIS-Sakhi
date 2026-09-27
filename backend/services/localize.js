@@ -19,6 +19,14 @@ const LANGUAGE_MAP = {
   ml: "ml",
 };
 
+/**
+ * Translate user-facing guidance, retaining original text for unverified results.
+ * English and unrecognized language values return the original response.
+ * @param {Object} response - Guidance payload to localize.
+ * @param {string} language - Language name or code, normalized before lookup.
+ * @returns {Promise<Object>} The original payload or a localized shallow copy.
+ * @throws {Error} If a translation request fails.
+ */
 async function localizeResponse(response, language) {
   const normalizedLanguage =
   typeof language === "string"

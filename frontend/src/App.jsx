@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Search,
   Menu,
@@ -11,8 +11,41 @@ import {
   Loader2,
 } from "lucide-react";
 import "./App.css";
+import { Link, useRouter } from "./router.jsx";
+import {
+  StandardsPage,
+  CertificationPage,
+  LaboratoriesPage,
+  ServicesPage,
+  ResourcesPage,
+  CompliancePage,
+} from "./pages.jsx";
 
 const API_URL = "http://localhost:3000/api/ask";
+
+const NAV_LINKS = [
+  { to: "/", label: "Home" },
+  { to: "/standards", label: "Know Your Standards" },
+  { to: "/certification", label: "Certification" },
+  { to: "/laboratories", label: "Testing Laboratories" },
+  { to: "/services", label: "BIS Services" },
+  { to: "/resources", label: "Resources" },
+  { to: "/compliance", label: "Compliance" },
+];
+
+const STATIC_ROUTES = {
+  "/standards": StandardsPage,
+  "/certification": CertificationPage,
+  "/laboratories": LaboratoriesPage,
+  "/services": ServicesPage,
+  "/resources": ResourcesPage,
+  "/compliance": CompliancePage,
+};
+
+function StaticPage({ path }) {
+  const Page = STATIC_ROUTES[path];
+  return Page ? <Page /> : null;
+}
 
 const examples = [
   "Motorcycle Helmets",
@@ -73,6 +106,16 @@ function App() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [language, setLanguage] = useState("en");
+  const { path } = useRouter();
+
+  // Close menu panels whenever the route changes.
+  useEffect(() => {
+    setMenuOpen(false);
+    setMobileOpen(false);
+  }, [path]);
 
   async function askSakhi(question = query) {
     if (!question.trim()) return;
@@ -87,7 +130,15 @@ function App() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ query: question }),
+        // Hindi control reuses the existing backend localization mechanism:
+        // the Groq query-understanding layer detects the language hint and the
+        // backend localizes its response via the existing localize service.
+        body: JSON.stringify({
+          query:
+            language === "hi"
+              ? `${question}\n(कृपया उत्तर हिंदी में दें। Please respond in Hindi.)`
+              : question,
+        }),
       });
 
       const data = await response.json();
@@ -126,10 +177,16 @@ function App() {
           <span>Bureau of Indian Standards</span>
 
           <div className="utility-links">
-            <span>Standards</span>
-            <span>Laboratories</span>
-            <span>Certification</span>
-            <span>हिंदी</span>
+            <Link to="/standards">Standards</Link>
+            <Link to="/laboratories">Laboratories</Link>
+            <Link to="/certification">Certification</Link>
+            <button
+              type="button"
+              className={"lang-toggle" + (language === "hi" ? " active" : "")}
+              onClick={() => setLanguage(language === "hi" ? "en" : "hi")}
+            >
+              हिंदी
+            </button>
           </div>
         </div>
       </div>
@@ -154,31 +211,62 @@ function App() {
           </div>
 
           <nav className="desktop-nav">
-            <span>Standards</span>
-            <span>Resources</span>
-            <span>Compliance</span>
-            <span>Laboratories</span>
-            <button>Menu</button>
+            <Link to="/standards" className={path === "/standards" ? "active" : ""}>Standards</Link>
+            <Link to="/resources" className={path === "/resources" ? "active" : ""}>Resources</Link>
+            <Link to="/compliance" className={path === "/compliance" ? "active" : ""}>Compliance</Link>
+            <Link to="/laboratories" className={path === "/laboratories" ? "active" : ""}>Laboratories</Link>
+            <div className="menu-wrap">
+              <button type="button" onClick={() => setMenuOpen(!menuOpen)}>
+                Menu
+              </button>
+              {menuOpen && (
+                <div className="menu-panel">
+                  {NAV_LINKS.map((link) => (
+                    <Link key={link.to} to={link.to}>
+                      {link.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
           </nav>
 
-          <button className="mobile-menu">
+          <button
+            className="mobile-menu"
+            onClick={() => setMobileOpen(!mobileOpen)}
+          >
             <Menu size={21} />
           </button>
         </div>
       </header>
 
+      {/* Mobile menu panel (renders under header) */}
+      {mobileOpen && (
+        <div className="mobile-menu-panel">
+          <div className="container">
+            {NAV_LINKS.map((link) => (
+              <Link key={link.to} to={link.to}>
+                {link.label}
+              </Link>
+              ))}
+          </div>
+        </div>
+      )}
+
       {/* Blue navigation */}
       <div className="main-nav">
         <div className="container nav-inner">
-          <span>Home</span>
-          <span>Know Your Standards</span>
-          <span>Certification</span>
-          <span>Testing Laboratories</span>
-          <span>BIS Services</span>
+          {NAV_LINKS.slice(0, 5).map((link) => (
+            <Link key={link.to} to={link.to} className={path === link.to ? "active" : ""}>
+              {link.label}
+            </Link>
+          ))}
         </div>
       </div>
 
       <main>
+        {path === "/" ? (
+          <>
 
         {/* Search hero */}
         <section className="search-section">
@@ -911,6 +999,10 @@ function App() {
             </section>
           )}
         </div>
+          </>
+        ) : (
+          <StaticPage path={path} />
+        )}
       </main>
 
       {/* Footer */}
@@ -924,10 +1016,10 @@ function App() {
           </div>
 
           <div className="footer-links">
-            <span>Standards</span>
-            <span>Certification</span>
-            <span>Laboratories</span>
-            <span>BIS Services</span>
+            <Link to="/standards">Standards</Link>
+            <Link to="/certification">Certification</Link>
+            <Link to="/laboratories">Laboratories</Link>
+            <Link to="/services">BIS Services</Link>
           </div>
 
           <div className="footer-copy">

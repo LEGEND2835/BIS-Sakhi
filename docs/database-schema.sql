@@ -235,3 +235,4 @@ CREATE INDEX idx_queries_created
 -- ============================================================
 -- COMPLETE
 -- ============================================================
+ALTER TABLE evidence ADD COLUMN clause_reference VARCHAR(100);

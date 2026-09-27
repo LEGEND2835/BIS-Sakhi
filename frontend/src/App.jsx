@@ -200,9 +200,15 @@ function App() {
         throw apiError;
       }
 
-      if (parseFailed || data === null || typeof data !== "object") {
-        // The backend returned 200 OK but the body could not be read as a
-        // JSON object, so the result must not be silently discarded.
+      if (
+        parseFailed ||
+        data === null ||
+        Array.isArray(data) ||
+        typeof data !== "object"
+      ) {
+        // The backend returned 200 OK but the body was not a valid
+        // non-array JSON object, so the result must not be silently
+        // discarded or rendered as a result.
         const parseError = new Error(
           "The BIS-SAKHI backend returned a response that could not be read. Please try again in a moment."
         );

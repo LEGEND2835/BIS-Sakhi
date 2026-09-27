@@ -81,8 +81,25 @@ CREATE TABLE IF NOT EXISTS hallmarking_guidance (
     question_pattern TEXT NOT NULL,
     answer TEXT NOT NULL,
     source_id INTEGER REFERENCES sources(id) ON DELETE SET NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(topic, question_pattern)
 );
+
+-- If the table already existed before the UNIQUE constraint was added to
+-- the schema, add it now so reruns cannot duplicate guidance rows.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'hallmarking_guidance_topic_question_pattern_key'
+    ) THEN
+        ALTER TABLE hallmarking_guidance
+            ADD CONSTRAINT hallmarking_guidance_topic_question_pattern_key
+            UNIQUE (topic, question_pattern);
+    END IF;
+END
+$$;
 
 
 -- ------------------------------------------------------------
@@ -98,7 +115,8 @@ SELECT
     id
 FROM sources
 WHERE name = 'BIS Hallmarking Overview'
-LIMIT 1;
+LIMIT 1
+ON CONFLICT (topic, question_pattern) DO NOTHING;
 
 
 INSERT INTO hallmarking_guidance
@@ -110,7 +128,8 @@ SELECT
     id
 FROM sources
 WHERE name = 'BIS Hallmarking Overview'
-LIMIT 1;
+LIMIT 1
+ON CONFLICT (topic, question_pattern) DO NOTHING;
 
 
 -- ------------------------------------------------------------
@@ -126,7 +145,8 @@ SELECT
     id
 FROM sources
 WHERE name = 'BIS Hallmarking FAQ'
-LIMIT 1;
+LIMIT 1
+ON CONFLICT (topic, question_pattern) DO NOTHING;
 
 
 INSERT INTO hallmarking_guidance
@@ -138,7 +158,8 @@ SELECT
     id
 FROM sources
 WHERE name = 'BIS Hallmarking FAQ'
-LIMIT 1;
+LIMIT 1
+ON CONFLICT (topic, question_pattern) DO NOTHING;
 
 
 INSERT INTO hallmarking_guidance
@@ -150,7 +171,8 @@ SELECT
     id
 FROM sources
 WHERE name = 'BIS Care App'
-LIMIT 1;
+LIMIT 1
+ON CONFLICT (topic, question_pattern) DO NOTHING;
 
 
 -- ------------------------------------------------------------
@@ -166,7 +188,8 @@ SELECT
     id
 FROM sources
 WHERE name = 'BIS Hallmarking Consumer Protection'
-LIMIT 1;
+LIMIT 1
+ON CONFLICT (topic, question_pattern) DO NOTHING;
 
 
 -- ------------------------------------------------------------
@@ -182,7 +205,8 @@ SELECT
     id
 FROM sources
 WHERE name = 'BIS Consumer Protection'
-LIMIT 1;
+LIMIT 1
+ON CONFLICT (topic, question_pattern) DO NOTHING;
 
 
 -- ------------------------------------------------------------
@@ -198,7 +222,8 @@ SELECT
     id
 FROM sources
 WHERE name = 'BIS Product Certification FAQ'
-LIMIT 1;
+LIMIT 1
+ON CONFLICT (topic, question_pattern) DO NOTHING;
 
 
 -- ------------------------------------------------------------
@@ -214,7 +239,8 @@ SELECT
     id
 FROM sources
 WHERE name = 'BIS Care App'
-LIMIT 1;
+LIMIT 1
+ON CONFLICT (topic, question_pattern) DO NOTHING;
 
 
 -- ------------------------------------------------------------
@@ -230,7 +256,8 @@ SELECT
     id
 FROM sources
 WHERE name = 'BIS Hallmarking FAQ'
-LIMIT 1;
+LIMIT 1
+ON CONFLICT (topic, question_pattern) DO NOTHING;
 
 
 -- ------------------------------------------------------------
@@ -246,7 +273,8 @@ SELECT
     id
 FROM sources
 WHERE name = 'BIS Hallmarking FAQ'
-LIMIT 1;
+LIMIT 1
+ON CONFLICT (topic, question_pattern) DO NOTHING;
 
 
 -- ------------------------------------------------------------
@@ -262,7 +290,8 @@ SELECT
     id
 FROM sources
 WHERE name = 'BIS Hallmarking Jewellers FAQ'
-LIMIT 1;
+LIMIT 1
+ON CONFLICT (topic, question_pattern) DO NOTHING;
 
 
 -- ------------------------------------------------------------
@@ -278,7 +307,8 @@ SELECT
     id
 FROM sources
 WHERE name = 'BIS Hallmarking Jewellers FAQ'
-LIMIT 1;
+LIMIT 1
+ON CONFLICT (topic, question_pattern) DO NOTHING;
 
 
 -- ------------------------------------------------------------
@@ -294,7 +324,8 @@ SELECT
     id
 FROM sources
 WHERE name = 'BIS Assaying and Hallmarking Centre FAQ'
-LIMIT 1;
+LIMIT 1
+ON CONFLICT (topic, question_pattern) DO NOTHING;
 
 -- ------------------------------------------------------------
 -- 14. Jeweller registration procedure
@@ -322,6 +353,7 @@ SELECT
     id
 FROM sources
 WHERE name = 'BIS Jeweller Registration Procedure'
-LIMIT 1;
+LIMIT 1
+ON CONFLICT (topic, question_pattern) DO NOTHING;
 
 COMMIT;

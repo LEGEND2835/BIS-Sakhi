@@ -7,9 +7,10 @@
 -- 1. PRODUCTS
 CREATE TABLE products (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL UNIQUE,
     category VARCHAR(100),
     description TEXT,
+    keywords TEXT[],
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -17,7 +18,7 @@ CREATE TABLE products (
 -- Stores provenance for BIS/Government sources.
 CREATE TABLE sources (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL UNIQUE,
     source_type VARCHAR(100) NOT NULL,
     url TEXT,
     publisher VARCHAR(255),
@@ -83,7 +84,8 @@ CREATE TABLE product_certifications (
 -- 8. LABORATORIES
 CREATE TABLE labs (
     id SERIAL PRIMARY KEY,
-    lab_code VARCHAR(100),
+    -- lab_code is nullable: some BIS regional laboratories have no LIMS code.
+    lab_code VARCHAR(100) UNIQUE,
     lab_name VARCHAR(255) NOT NULL,
     address TEXT,
     city VARCHAR(100),
@@ -164,6 +166,18 @@ CREATE TABLE queries (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 14. HALLMARKING GUIDANCE
+-- Consumer-facing hallmarking guidance keyed by topic and question patterns.
+CREATE TABLE hallmarking_guidance (
+    id SERIAL PRIMARY KEY,
+    topic VARCHAR(100) NOT NULL,
+    question_pattern TEXT NOT NULL,
+    answer TEXT NOT NULL,
+    source_id INTEGER REFERENCES sources(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(topic, question_pattern)
+);
+
 -- ============================================================
 -- INDEXES
 -- ============================================================
@@ -182,6 +196,15 @@ CREATE INDEX idx_products_category
 
 CREATE INDEX idx_labs_name
     ON labs(lab_name);
+
+CREATE INDEX idx_labs_lab_code
+    ON labs(lab_code);
+
+CREATE INDEX idx_products_keywords
+    ON products USING GIN(keywords);
+
+CREATE INDEX idx_hallmarking_guidance_topic
+    ON hallmarking_guidance(topic);
 
 CREATE INDEX idx_labs_state
     ON labs(state);

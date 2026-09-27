@@ -135,7 +135,7 @@ VALUES
     'Gurugram',
     'Haryana'
 )
-ON CONFLICT DO NOTHING;
+ON CONFLICT (lab_code) DO NOTHING;
 
 -- Lab scopes — Part 1
 INSERT INTO lab_scopes
@@ -179,7 +179,7 @@ VALUES
     'Noida',
     'Uttar Pradesh'
 )
-ON CONFLICT DO NOTHING;
+ON CONFLICT (lab_code) DO NOTHING;
 
 -- Lab scopes — Part 2
 INSERT INTO lab_scopes
@@ -216,6 +216,13 @@ JOIN standards s
         'IS 16046 (Part 1):2018',
         'IS 16046 (Part 2):2018'
     )
-WHERE src.name = 'BIS LIMS - IS 16046';
+WHERE src.name = 'BIS LIMS - IS 16046'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM evidence e
+      WHERE e.standard_id = s.id
+        AND e.source_id = src.id
+        AND e.evidence_type = 'BIS LIMS'
+  );
 
 COMMIT;

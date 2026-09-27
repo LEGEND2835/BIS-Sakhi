@@ -1,7 +1,10 @@
 -- ============================================================
 -- BIS-SAKHI TOYS SEED DATA
 -- Verified against BIS / BIS LIMS
+-- Safe to rerun: idempotent (ON CONFLICT / NOT EXISTS guards).
 -- ============================================================
+
+BEGIN;
 
 -- SOURCE
 INSERT INTO sources
@@ -27,7 +30,8 @@ VALUES
     'https://lims.bis.gov.in/home/search_is_number/?is_number__doc_no=15644',
     'Bureau of Indian Standards',
     'Official BIS LIMS results for IS 15644.'
-);
+)
+ON CONFLICT (name) DO NOTHING;
 
 -- PRODUCT
 INSERT INTO products
@@ -47,7 +51,8 @@ VALUES
         'baby toy',
         'baby toys'
     ]
-);
+)
+ON CONFLICT (name) DO NOTHING;
 
 -- STANDARDS
 INSERT INTO standards
@@ -84,9 +89,10 @@ VALUES
         SELECT id FROM sources
         WHERE name = 'BIS LIMS - IS 15644'
     )
-);
+)
+ON CONFLICT (standard_number) DO NOTHING;
 
--- PRODUCT ↔ STANDARD
+-- PRODUCT <-> STANDARD
 
 INSERT INTO product_standards
     (product_id, standard_id, relevance_reason)
@@ -112,14 +118,16 @@ VALUES
         WHERE standard_number = 'IS 15644:2006'
     ),
     'Primary standard pathway for electric toys.'
-);
+)
+ON CONFLICT DO NOTHING;
 
 -- LABORATORIES FOR NON-ELECTRIC TOYS
+-- Inserted only when not already present (guards on lab_code or lab_name
+-- for the two BIS regional laboratories that have no LIMS lab_code).
 
 INSERT INTO labs
     (lab_code, lab_name, city, state, source_id)
-VALUES
-(
+SELECT
     '7174106',
     'Precision Laboratories LLP',
     'Ahmedabad',
@@ -128,8 +136,14 @@ VALUES
         SELECT id FROM sources
         WHERE name = 'BIS LIMS - IS 9873'
     )
-),
-(
+WHERE NOT EXISTS (
+    SELECT 1 FROM labs
+    WHERE lab_code = '7174106'
+);
+
+INSERT INTO labs
+    (lab_code, lab_name, city, state, source_id)
+SELECT
     NULL,
     'BIS, Western Regional Laboratory (WRL)',
     NULL,
@@ -138,8 +152,14 @@ VALUES
         SELECT id FROM sources
         WHERE name = 'BIS LIMS - IS 9873'
     )
-),
-(
+WHERE NOT EXISTS (
+    SELECT 1 FROM labs
+    WHERE lab_name = 'BIS, Western Regional Laboratory (WRL)'
+);
+
+INSERT INTO labs
+    (lab_code, lab_name, city, state, source_id)
+SELECT
     NULL,
     'BIS, Central Laboratory (CL)',
     NULL,
@@ -148,6 +168,9 @@ VALUES
         SELECT id FROM sources
         WHERE name = 'BIS LIMS - IS 9873'
     )
+WHERE NOT EXISTS (
+    SELECT 1 FROM labs
+    WHERE lab_name = 'BIS, Central Laboratory (CL)'
 );
 
 -- LAB SCOPES FOR IS 9873 PART 1
@@ -202,14 +225,18 @@ VALUES
         SELECT id FROM sources
         WHERE name = 'BIS LIMS - IS 9873'
     )
-);
+)
+ON CONFLICT DO NOTHING;
 
 -- LABORATORIES FOR ELECTRIC TOYS
+-- Labs 8168906 (URS) and 8185306 (ALPHA) are shared with the batteries
+-- seed: skip insertion when the lab_code already exists, then link this
+-- seed's LIMS source without overwriting the shared lab identity.
+-- Lab 8138306 (Testtex) is shared with the helmet seed in the same way.
 
 INSERT INTO labs
     (lab_code, lab_name, city, state, source_id)
-VALUES
-(
+SELECT
     '8168906',
     'URS PRODUCTS AND TESTING PVT. LTD. (A29), NOIDA',
     'Noida',
@@ -218,8 +245,14 @@ VALUES
         SELECT id FROM sources
         WHERE name = 'BIS LIMS - IS 15644'
     )
-),
-(
+WHERE NOT EXISTS (
+    SELECT 1 FROM labs
+    WHERE lab_code = '8168906'
+);
+
+INSERT INTO labs
+    (lab_code, lab_name, city, state, source_id)
+SELECT
     '8185306',
     'ALPHA TEST HOUSE PVT LTD, BAHADURGARH',
     'Bahadurgarh',
@@ -228,8 +261,14 @@ VALUES
         SELECT id FROM sources
         WHERE name = 'BIS LIMS - IS 15644'
     )
-),
-(
+WHERE NOT EXISTS (
+    SELECT 1 FROM labs
+    WHERE lab_code = '8185306'
+);
+
+INSERT INTO labs
+    (lab_code, lab_name, city, state, source_id)
+SELECT
     '8138306',
     'Testtex India Laboratories Private Limited, Noida',
     'Noida',
@@ -238,7 +277,19 @@ VALUES
         SELECT id FROM sources
         WHERE name = 'BIS LIMS - IS 15644'
     )
+WHERE NOT EXISTS (
+    SELECT 1 FROM labs
+    WHERE lab_code = '8138306'
 );
+
+-- Link the shared/known labs to this seed's LIMS source without
+-- changing lab_code or lab_name (idempotent on rerun).
+UPDATE labs
+SET source_id = (
+    SELECT id FROM sources
+    WHERE name = 'BIS LIMS - IS 15644'
+)
+WHERE lab_code IN ('8168906', '8185306', '8138306');
 
 -- LAB SCOPES FOR ELECTRIC TOYS
 
@@ -292,7 +343,8 @@ VALUES
         SELECT id FROM sources
         WHERE name = 'BIS LIMS - IS 15644'
     )
-);
+)
+ON CONFLICT DO NOTHING;
 
 -- EVIDENCE
 
@@ -305,8 +357,7 @@ INSERT INTO evidence
         reference_text,
         url
     )
-VALUES
-(
+SELECT
     (
         SELECT id FROM sources
         WHERE name = 'BIS Toys Certification'
@@ -319,8 +370,30 @@ VALUES
     'certification_standard',
     'BIS lists toys under compulsory certification and identifies the IS 9873 series for non-electric toys.',
     'https://www.bis.gov.in/product-certification/products-under-compulsory-certification/scheme-i-mark-scheme/'
-),
-(
+WHERE NOT EXISTS (
+    SELECT 1 FROM evidence e
+    WHERE e.source_id = (
+        SELECT id FROM sources
+        WHERE name = 'BIS Toys Certification'
+    )
+      AND e.standard_id = (
+        SELECT id FROM standards
+        WHERE standard_number = 'IS 9873 (Part 1):2025'
+    )
+      AND e.lab_id IS NULL
+      AND e.evidence_type = 'certification_standard'
+);
+
+INSERT INTO evidence
+    (
+        source_id,
+        standard_id,
+        lab_id,
+        evidence_type,
+        reference_text,
+        url
+    )
+SELECT
     (
         SELECT id FROM sources
         WHERE name = 'BIS Toys Certification'
@@ -333,8 +406,30 @@ VALUES
     'certification_standard',
     'BIS lists IS 15644:2006 for safety of electric toys under compulsory certification.',
     'https://www.bis.gov.in/product-certification/products-under-compulsory-certification/scheme-i-mark-scheme/'
-),
-(
+WHERE NOT EXISTS (
+    SELECT 1 FROM evidence e
+    WHERE e.source_id = (
+        SELECT id FROM sources
+        WHERE name = 'BIS Toys Certification'
+    )
+      AND e.standard_id = (
+        SELECT id FROM standards
+        WHERE standard_number = 'IS 15644:2006'
+    )
+      AND e.lab_id IS NULL
+      AND e.evidence_type = 'certification_standard'
+);
+
+INSERT INTO evidence
+    (
+        source_id,
+        standard_id,
+        lab_id,
+        evidence_type,
+        reference_text,
+        url
+    )
+SELECT
     (
         SELECT id FROM sources
         WHERE name = 'BIS LIMS - IS 9873'
@@ -350,8 +445,33 @@ VALUES
     'laboratory_scope',
     'BIS LIMS lists Precision Laboratories LLP, Ahmedabad for IS 9873 Part 1:2025.',
     'https://lims.bis.gov.in/home/search_is_number/?is_number__doc_no=9873'
-),
-(
+WHERE NOT EXISTS (
+    SELECT 1 FROM evidence e
+    WHERE e.source_id = (
+        SELECT id FROM sources
+        WHERE name = 'BIS LIMS - IS 9873'
+    )
+      AND e.standard_id = (
+        SELECT id FROM standards
+        WHERE standard_number = 'IS 9873 (Part 1):2025'
+    )
+      AND e.lab_id = (
+        SELECT id FROM labs
+        WHERE lab_code = '7174106'
+    )
+      AND e.evidence_type = 'laboratory_scope'
+);
+
+INSERT INTO evidence
+    (
+        source_id,
+        standard_id,
+        lab_id,
+        evidence_type,
+        reference_text,
+        url
+    )
+SELECT
     (
         SELECT id FROM sources
         WHERE name = 'BIS LIMS - IS 15644'
@@ -367,4 +487,21 @@ VALUES
     'laboratory_scope',
     'BIS LIMS lists URS Products and Testing Pvt. Ltd., Noida for IS 15644:2006.',
     'https://lims.bis.gov.in/home/search_is_number/?is_number__doc_no=15644'
+WHERE NOT EXISTS (
+    SELECT 1 FROM evidence e
+    WHERE e.source_id = (
+        SELECT id FROM sources
+        WHERE name = 'BIS LIMS - IS 15644'
+    )
+      AND e.standard_id = (
+        SELECT id FROM standards
+        WHERE standard_number = 'IS 15644:2006'
+    )
+      AND e.lab_id = (
+        SELECT id FROM labs
+        WHERE lab_code = '8168906'
+    )
+      AND e.evidence_type = 'laboratory_scope'
 );
+
+COMMIT;

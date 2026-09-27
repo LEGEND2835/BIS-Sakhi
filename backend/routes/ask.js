@@ -143,7 +143,7 @@ router.post("/", async (req, res, next) => {
       }
 
       for (const row of hallmarkResult.rows) {
-        const patterns = row.question_pattern
+        const patterns = (row.question_pattern ?? "")
           .split(";")
           .map(pattern => pattern.trim());
 
@@ -260,7 +260,7 @@ router.post("/", async (req, res, next) => {
       let bestScore = 0;
 
       for (const row of consumerResult.rows) {
-        const patterns = row.question_pattern
+        const patterns = (row.question_pattern ?? "")
           .toLowerCase()
           .split(";")
           .map(pattern =>

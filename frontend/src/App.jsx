@@ -21,7 +21,9 @@ import {
   CompliancePage,
 } from "./pages.jsx";
 
-const API_URL = "http://localhost:3000/api/ask";
+// Backend API base URL. Override in production with VITE_API_URL
+// (e.g. the Render backend URL) at build time.
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api/ask";
 
 const NAV_LINKS = [
   { to: "/", label: "Home" },
@@ -42,11 +44,41 @@ const STATIC_ROUTES = {
   "/compliance": CompliancePage,
 };
 
-/** Render the informational page for a known path, or null for other paths. */
+/** Render the informational page for a known path, or a 404 page for unknown paths. */
+function NotFoundPage() {
+  return (
+    <div className="static-page">
+      <div className="container">
+        <div className="breadcrumb">
+          <Link to="/">Home</Link> <ChevronRight size={14} /> Page not found
+        </div>
+
+        <div className="page-heading">
+          <div className="eyebrow">404</div>
+          <h1>Page not found</h1>
+          <p>
+            The page you are looking for is not part of BIS-SAKHI. Use the
+            navigation above or return to the home page to search the verified
+            standards knowledge base.
+          </p>
+        </div>
+
+        <div className="page-section">
+          <Link to="/" className="page-cta">
+            Back to home
+            <ChevronRight size={14} />
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function StaticPage({ path }) {
   const Page = STATIC_ROUTES[path];
-  return Page ? <Page /> : null;
+  return Page ? <Page /> : <NotFoundPage />;
 }
+
 
 const examples = [
   "Motorcycle Helmets",
@@ -148,10 +180,23 @@ function App() {
         }),
       });
 
-      const data = await response.json();
+      let data = null;
+      try {
+        data = await response.json();
+      } catch {
+        // Non-JSON response body (e.g. an HTML error page from a proxy).
+        data = null;
+      }
 
       if (!response.ok) {
-        throw new Error(data.message || "Request failed");
+        // The backend responded with a meaningful error payload:
+        // surface its message instead of a generic connection error.
+        const apiError = new Error(
+          data?.message ||
+            `The BIS-SAKHI backend returned an error (status ${response.status}).`
+        );
+        apiError.isApiError = true;
+        throw apiError;
       }
 
       setResult(data);
@@ -162,9 +207,14 @@ function App() {
         }
       }, 80);
     } catch (err) {
-      setError(
-        "Unable to connect to the BIS-SAKHI backend server. Please ensure the backend is running on http://localhost:3000."
-      );
+      if (err && err.isApiError) {
+        setError(err.message);
+      } else {
+        // Actual network/connection failure (fetch itself threw).
+        setError(
+          `Unable to connect to the BIS-SAKHI backend server. Please ensure the backend is running at ${API_URL}.`
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -354,7 +404,7 @@ function App() {
 
         {/* Loading state indicator */}
         {loading && (
-          <div className="container" id="search-results-anchor">
+          <div className="container">
             <div className="loading-state">
               <Loader2 className="spin" size={30} />
               <h3>Consulting BIS-SAKHI Knowledge Base...</h3>
@@ -368,7 +418,7 @@ function App() {
 
         {/* Error notification */}
         {error && !loading && (
-          <div className="container" id="search-results-anchor">
+          <div className="container">
             <div className="error-message">
               <AlertTriangle size={20} />
               <div>

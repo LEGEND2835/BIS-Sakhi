@@ -12,7 +12,9 @@ const groq = new Groq({
  */
 async function understandQuery(query) {
   const response = await groq.chat.completions.create({
-    model: process.env.GROQ_MODEL,
+    // Fall back to the default model so intent classification still works
+    // when GROQ_MODEL is not configured.
+    model: process.env.GROQ_MODEL || "openai/gpt-oss-20b",
     messages: [
       {
         role: "system",

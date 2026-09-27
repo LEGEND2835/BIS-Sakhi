@@ -58,6 +58,48 @@ async function localizeResponse(response, language) {
     }
   }
 
+  // Consumer guidance response
+  if (localized.consumer_guidance?.answer) {
+    const translated = await translateToLanguage(
+      localized.consumer_guidance.answer,
+      targetLanguage
+    );
+
+    if (translated.verified) {
+      localized.consumer_guidance = {
+        ...localized.consumer_guidance,
+        answer: translated.text,
+      };
+    }
+  }
+
+  // Certification process steps
+  if (Array.isArray(localized.certification_process)) {
+    const translatedSteps = [];
+
+    for (const step of localized.certification_process) {
+      const title = await translateToLanguage(
+        step.title,
+        targetLanguage
+      );
+
+      const description = await translateToLanguage(
+        step.description,
+        targetLanguage
+      );
+
+      translatedSteps.push({
+        ...step,
+        title: title.verified ? title.text : step.title,
+        description: description.verified
+          ? description.text
+          : step.description,
+      });
+    }
+
+    localized.certification_process = translatedSteps;
+  }
+
   // User-facing abstention messages
   if (localized.message) {
     const translated = await translateToLanguage(

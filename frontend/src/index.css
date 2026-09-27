@@ -1,0 +1,30 @@
+* {
+  box-sizing: border-box;
+}
+
+html {
+  margin: 0;
+  padding: 0;
+  background: #ffffff;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  font-family:
+    "Segoe UI",
+    Arial,
+    Helvetica,
+    sans-serif;
+  background: #ffffff;
+}
+
+button,
+textarea,
+input {
+  font-family: inherit;
+}
+
+button {
+  transition: 0.15s ease;
+}

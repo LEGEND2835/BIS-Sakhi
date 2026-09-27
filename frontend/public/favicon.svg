@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="61" height="47" viewBox="0 0 61 47">
+  <!-- Icon-only crop of the BIS-SAKHI header mark (.bis-symbol in App.css):
+       blue rounded shield outline + red ellipse outline + red dot, skewX(-8deg).
+       Geometry mirrors the CSS box model exactly (border-box, 3px strokes). -->
+  <g transform="translate(8.6 3) skewX(-8)">
+    <!-- .bis-symbol: 50x42 outer box, 3px #174b91 border, radius 7/7/20/20.
+         Stroke centered on the border middle line (inset 1.5). -->
+    <path
+      d="M7 1.5 H43 A5.5 5.5 0 0 1 48.5 7 V22 A18.5 18.5 0 0 1 30 40.5 H20 A18.5 18.5 0 0 1 1.5 22 V7 A5.5 5.5 0 0 1 7 1.5 Z"
+      fill="none" stroke="#174b91" stroke-width="3"/>
+    <!-- .bis-symbol::before: 28x15 outer, 3px #e23434 ellipse outline, centered -->
+    <ellipse cx="25" cy="21" rx="12.5" ry="6" fill="none" stroke="#e23434" stroke-width="3"/>
+    <!-- .bis-symbol-inner span: 7x7 #e23434 dot at top:9px left:20px -->
+    <circle cx="23.5" cy="12.5" r="3.5" fill="#e23434"/>
+  </g>
+</svg>
